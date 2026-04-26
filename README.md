@@ -2,7 +2,7 @@
 
 ![new-api](/web/public/logo.png)
 
-# New API
+# New API2
 
 🍥 **Next-Generation LLM Gateway and AI Asset Management System**
 

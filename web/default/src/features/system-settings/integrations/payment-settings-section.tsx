@@ -42,6 +42,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
@@ -132,6 +133,15 @@ const paymentSchema = z.object({
       })
     }
   }),
+  PayPalEnabled: z.boolean(),
+  PayPalClientId: z.string(),
+  PayPalClientSecret: z.string(),
+  PayPalMode: z.enum(['sandbox', 'live']),
+  PayPalCallbackUrl: z.string().refine((value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return true
+    return /^https?:\/\//.test(trimmed)
+  }, 'Provide a valid URL starting with http:// or https://'),
 })
 
 type PaymentFormValues = z.infer<typeof paymentSchema>
@@ -259,6 +269,7 @@ export function PaymentSettingsSection({
       AmountOptions: formatJsonForEditor(defaultValues.AmountOptions),
       AmountDiscount: formatJsonForEditor(defaultValues.AmountDiscount),
       CreemProducts: formatJsonForEditor(defaultValues.CreemProducts),
+      PayPalMode: defaultValues.PayPalMode || 'sandbox',
     },
   })
 
@@ -271,6 +282,7 @@ export function PaymentSettingsSection({
       AmountOptions: formatJsonForEditor(parsedDefaults.AmountOptions),
       AmountDiscount: formatJsonForEditor(parsedDefaults.AmountDiscount),
       CreemProducts: formatJsonForEditor(parsedDefaults.CreemProducts),
+      PayPalMode: parsedDefaults.PayPalMode || 'sandbox',
     })
   }, [defaultsSignature, form])
 
@@ -513,6 +525,66 @@ export function PaymentSettingsSection({
     }
   }
 
+  const savePayPalSettings = async () => {
+    const values = form.getValues()
+    const sanitized = {
+      PayPalEnabled: values.PayPalEnabled as boolean,
+      PayPalClientId: values.PayPalClientId.trim(),
+      PayPalClientSecret: values.PayPalClientSecret.trim(),
+      PayPalMode: values.PayPalMode || 'sandbox',
+      PayPalCallbackUrl: removeTrailingSlash(values.PayPalCallbackUrl),
+    }
+
+    const initial = {
+      PayPalEnabled: initialRef.current.PayPalEnabled,
+      PayPalClientId: initialRef.current.PayPalClientId.trim(),
+      PayPalClientSecret: initialRef.current.PayPalClientSecret.trim(),
+      PayPalMode: initialRef.current.PayPalMode || 'sandbox',
+      PayPalCallbackUrl: removeTrailingSlash(
+        initialRef.current.PayPalCallbackUrl
+      ),
+    }
+
+    const updates: Array<{ key: string; value: string | boolean }> = []
+
+    if (sanitized.PayPalEnabled !== initial.PayPalEnabled) {
+      updates.push({ key: 'PayPalEnabled', value: sanitized.PayPalEnabled })
+    }
+
+    if (sanitized.PayPalClientId !== initial.PayPalClientId) {
+      updates.push({ key: 'PayPalClientId', value: sanitized.PayPalClientId })
+    }
+
+    if (
+      sanitized.PayPalClientSecret &&
+      sanitized.PayPalClientSecret !== initial.PayPalClientSecret
+    ) {
+      updates.push({
+        key: 'PayPalClientSecret',
+        value: sanitized.PayPalClientSecret,
+      })
+    }
+
+    if (sanitized.PayPalMode !== initial.PayPalMode) {
+      updates.push({ key: 'PayPalMode', value: sanitized.PayPalMode })
+    }
+
+    if (sanitized.PayPalCallbackUrl !== initial.PayPalCallbackUrl) {
+      updates.push({
+        key: 'PayPalCallbackUrl',
+        value: sanitized.PayPalCallbackUrl,
+      })
+    }
+
+    if (updates.length === 0) {
+      return
+    }
+
+    for (const update of updates) {
+      await updateOption.mutateAsync(update)
+    }
+  }
+
   const onSubmit = async (values: PaymentFormValues) => {
     const sanitized = {
       PayAddress: removeTrailingSlash(values.PayAddress),
@@ -530,6 +602,11 @@ export function PaymentSettingsSection({
       StripeUnitPrice: values.StripeUnitPrice,
       StripeMinTopUp: values.StripeMinTopUp,
       StripePromotionCodesEnabled: values.StripePromotionCodesEnabled,
+      PayPalEnabled: values.PayPalEnabled,
+      PayPalClientId: values.PayPalClientId.trim(),
+      PayPalClientSecret: values.PayPalClientSecret.trim(),
+      PayPalMode: values.PayPalMode || 'sandbox',
+      PayPalCallbackUrl: removeTrailingSlash(values.PayPalCallbackUrl),
     }
 
     const initial = {
@@ -551,6 +628,13 @@ export function PaymentSettingsSection({
       StripeMinTopUp: initialRef.current.StripeMinTopUp,
       StripePromotionCodesEnabled:
         initialRef.current.StripePromotionCodesEnabled,
+      PayPalEnabled: initialRef.current.PayPalEnabled,
+      PayPalClientId: initialRef.current.PayPalClientId.trim(),
+      PayPalClientSecret: initialRef.current.PayPalClientSecret.trim(),
+      PayPalMode: initialRef.current.PayPalMode || 'sandbox',
+      PayPalCallbackUrl: removeTrailingSlash(
+        initialRef.current.PayPalCallbackUrl
+      ),
     }
 
     const updates: Array<{ key: string; value: string | number | boolean }> = []
@@ -645,6 +729,35 @@ export function PaymentSettingsSection({
       updates.push({
         key: 'StripePromotionCodesEnabled',
         value: sanitized.StripePromotionCodesEnabled,
+      })
+    }
+
+    if (sanitized.PayPalEnabled !== initial.PayPalEnabled) {
+      updates.push({ key: 'PayPalEnabled', value: sanitized.PayPalEnabled })
+    }
+
+    if (sanitized.PayPalClientId !== initial.PayPalClientId) {
+      updates.push({ key: 'PayPalClientId', value: sanitized.PayPalClientId })
+    }
+
+    if (
+      sanitized.PayPalClientSecret &&
+      sanitized.PayPalClientSecret !== initial.PayPalClientSecret
+    ) {
+      updates.push({
+        key: 'PayPalClientSecret',
+        value: sanitized.PayPalClientSecret,
+      })
+    }
+
+    if (sanitized.PayPalMode !== initial.PayPalMode) {
+      updates.push({ key: 'PayPalMode', value: sanitized.PayPalMode })
+    }
+
+    if (sanitized.PayPalCallbackUrl !== initial.PayPalCallbackUrl) {
+      updates.push({
+        key: 'PayPalCallbackUrl',
+        value: sanitized.PayPalCallbackUrl,
       })
     }
 
@@ -1457,6 +1570,150 @@ export function PaymentSettingsSection({
               {updateOption.isPending
                 ? t('Saving...')
                 : t('Save Creem settings')}
+            </Button>
+          </div>
+
+          <Separator />
+
+          <div className='space-y-4'>
+            <div>
+              <h3 className='text-lg font-medium'>{t('PayPal Gateway')}</h3>
+              <p className='text-muted-foreground text-sm'>
+                {t('Configuration for PayPal payment integration')}
+              </p>
+            </div>
+
+            <FormField
+              control={form.control}
+              name='PayPalEnabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                  <div className='space-y-0.5'>
+                    <FormLabel className='text-base'>
+                      {t('Enable PayPal payments')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('Show PayPal as a wallet recharge option')}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='PayPalCallbackUrl'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('PayPal callback URL')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder='<ServerAddress>/api/paypal/return'
+                      autoComplete='off'
+                      {...field}
+                      onChange={(event) => field.onChange(event.target.value)}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Leave blank to use the system callback address automatically'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className='grid gap-6 md:grid-cols-3'>
+              <FormField
+                control={form.control}
+                name='PayPalClientId'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('PayPal Client ID')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder={t('Enter PayPal Client ID')}
+                        autoComplete='off'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='PayPalClientSecret'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('PayPal Client Secret')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='password'
+                        placeholder={t('Enter new secret to update')}
+                        autoComplete='new-password'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Leave blank unless rotating the secret')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='PayPalMode'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('PayPal mode')}</FormLabel>
+                    <FormControl>
+                      <NativeSelect
+                        className='w-full'
+                        value={field.value}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      >
+                        <NativeSelectOption value='sandbox'>
+                          {t('Sandbox')}
+                        </NativeSelectOption>
+                        <NativeSelectOption value='live'>
+                          {t('Live')}
+                        </NativeSelectOption>
+                      </NativeSelect>
+                    </FormControl>
+                    <FormDescription>
+                      {t('Use sandbox for testing and live for production')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Button
+              type='button'
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                savePayPalSettings()
+              }}
+              disabled={updateOption.isPending}
+            >
+              {updateOption.isPending
+                ? t('Saving...')
+                : t('Save PayPal settings')}
             </Button>
           </div>
 

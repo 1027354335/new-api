@@ -56,6 +56,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.POST("/stripe/webhook", controller.StripeWebhook)
 		apiRouter.POST("/creem/webhook", controller.CreemWebhook)
 		apiRouter.POST("/waffo/webhook", controller.WaffoWebhook)
+		apiRouter.GET("/paypal/return", controller.PayPalReturn)
 		//apiRouter.POST("/waffo-pancake/webhook", controller.WaffoPancakeWebhook)
 
 		// Universal secure verification routes
@@ -98,6 +99,8 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), controller.RequestStripePay)
 				selfRoute.POST("/stripe/amount", controller.RequestStripeAmount)
 				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
+				selfRoute.POST("/paypal/pay", middleware.CriticalRateLimit(), controller.RequestPayPalPay)
+				selfRoute.POST("/paypal/amount", controller.RequestPayPalAmount)
 				selfRoute.POST("/waffo/amount", controller.RequestWaffoAmount)
 				selfRoute.POST("/waffo/pay", middleware.CriticalRateLimit(), controller.RequestWaffoPay)
 				//selfRoute.POST("/waffo-pancake/amount", controller.RequestWaffoPancakeAmount)

@@ -158,6 +158,11 @@ const BILLING_SECTIONS = [
           CreemWebhookSecret: settings.CreemWebhookSecret,
           CreemTestMode: settings.CreemTestMode,
           CreemProducts: settings.CreemProducts,
+          PayPalEnabled: settings.PayPalEnabled ?? false,
+          PayPalClientId: settings.PayPalClientId ?? '',
+          PayPalClientSecret: settings.PayPalClientSecret ?? '',
+          PayPalMode: settings.PayPalMode === 'live' ? 'live' : 'sandbox',
+          PayPalCallbackUrl: settings.PayPalCallbackUrl ?? '',
         }}
         waffoDefaultValues={{
           WaffoEnabled: settings.WaffoEnabled ?? false,

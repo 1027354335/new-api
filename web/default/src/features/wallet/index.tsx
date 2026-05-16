@@ -22,6 +22,15 @@ import { getSelf } from '@/lib/api'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { SectionPageLayout } from '@/components/layout'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
@@ -54,6 +63,7 @@ import type {
 
 interface WalletProps {
   initialShowHistory?: boolean
+  initialPaymentResult?: 'success' | 'fail' | 'pending'
 }
 
 export function Wallet(props: WalletProps) {
@@ -73,6 +83,9 @@ export function Wallet(props: WalletProps) {
   const [selectedCreemProduct, setSelectedCreemProduct] =
     useState<CreemProduct | null>(null)
   const [showSubscriptionPanel, setShowSubscriptionPanel] = useState(true)
+  const [paymentResult, setPaymentResult] = useState<
+    'success' | 'fail' | 'pending' | undefined
+  >(props.initialPaymentResult)
 
   const { status } = useStatus()
   const { currency } = useSystemConfig()
@@ -129,6 +142,18 @@ export function Wallet(props: WalletProps) {
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [props.initialShowHistory])
+
+  useEffect(() => {
+    if (props.initialPaymentResult) {
+      setPaymentResult(props.initialPaymentResult)
+      fetchUser()
+    }
+  }, [fetchUser, props.initialPaymentResult])
+
+  const handlePaymentResultConfirm = () => {
+    setPaymentResult(undefined)
+    window.history.replaceState({}, '', window.location.pathname)
+  }
 
   // Initialize topup amount when topup info is loaded
   useEffect(() => {
@@ -361,6 +386,30 @@ export function Wallet(props: WalletProps) {
         product={selectedCreemProduct}
         processing={creemProcessing}
       />
+
+      {paymentResult && (
+        <AlertDialog open>
+          <AlertDialogContent className='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {paymentResult === 'success'
+                  ? t('Recharge successful')
+                  : t('Recharge failed')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {paymentResult === 'success'
+                  ? t('Your wallet balance has been updated.')
+                  : t('The payment was not completed. Please try again.')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={handlePaymentResultConfirm}>
+                {t('OK')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   )
 }

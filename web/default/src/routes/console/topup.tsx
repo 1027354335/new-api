@@ -24,9 +24,13 @@ const topupSearchSchema = z.record(z.string(), z.unknown()).catch({})
 export const Route = createFileRoute('/console/topup')({
   validateSearch: topupSearchSchema,
   beforeLoad: ({ search }) => {
+    const nextSearch = search.pay
+      ? search
+      : { show_history: true, ...search }
+
     throw redirect({
       to: '/wallet',
-      search: { show_history: true, ...search },
+      search: nextSearch,
     })
   },
 })

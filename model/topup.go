@@ -27,6 +27,7 @@ type TopUp struct {
 const (
 	PaymentMethodStripe       = "stripe"
 	PaymentMethodCreem        = "creem"
+	PaymentMethodPayPal       = "paypal"
 	PaymentMethodWaffo        = "waffo"
 	PaymentMethodWaffoPancake = "waffo_pancake"
 )
@@ -35,6 +36,7 @@ const (
 	PaymentProviderEpay         = "epay"
 	PaymentProviderStripe       = "stripe"
 	PaymentProviderCreem        = "creem"
+	PaymentProviderPayPal       = "paypal"
 	PaymentProviderWaffo        = "waffo"
 	PaymentProviderWaffoPancake = "waffo_pancake"
 )
@@ -458,6 +460,65 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 	}
 
 	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodCreem)
+
+	return nil
+}
+
+func RechargePayPal(referenceId string, callerIp string) (err error) {
+	if referenceId == "" {
+		return errors.New("reference id is empty")
+	}
+
+	var quotaToAdd int
+	topUp := &TopUp{}
+
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", referenceId).First(topUp).Error
+		if err != nil {
+			return ErrTopUpNotFound
+		}
+
+		if topUp.PaymentProvider != PaymentProviderPayPal {
+			return ErrPaymentMethodMismatch
+		}
+
+		if topUp.Status == common.TopUpStatusSuccess {
+			return nil
+		}
+
+		if topUp.Status != common.TopUpStatusPending {
+			return ErrTopUpStatusInvalid
+		}
+
+		dAmount := decimal.NewFromInt(topUp.Amount)
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		quotaToAdd = int(dAmount.Mul(dQuotaPerUnit).IntPart())
+		if quotaToAdd <= 0 {
+			return errors.New("invalid quota amount")
+		}
+
+		topUp.CompleteTime = common.GetTimestamp()
+		topUp.Status = common.TopUpStatusSuccess
+		if err := tx.Save(topUp).Error; err != nil {
+			return err
+		}
+
+		return tx.Model(&User{}).Where("id = ?", topUp.UserId).Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error
+	})
+
+	if err != nil {
+		common.SysError("paypal topup failed: " + err.Error())
+		return errors.New("topup failed")
+	}
+
+	if quotaToAdd > 0 {
+		RecordTopupLog(topUp.UserId, fmt.Sprintf("PayPal topup successful, quota: %v, paid: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodPayPal)
+	}
 
 	return nil
 }

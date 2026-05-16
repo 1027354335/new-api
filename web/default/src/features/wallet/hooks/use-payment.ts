@@ -21,14 +21,17 @@ import i18next from 'i18next'
 import { toast } from 'sonner'
 import {
   calculateAmount,
+  calculatePayPalAmount,
   calculateStripeAmount,
   calculateWaffoPancakeAmount,
   requestPayment,
+  requestPayPalPayment,
   requestStripePayment,
   isApiSuccess,
 } from '../api'
 import {
   isStripePayment,
+  isPayPalPayment,
   isWaffoPancakePayment,
   submitPaymentForm,
 } from '../lib'
@@ -49,9 +52,12 @@ export function usePayment() {
         setCalculating(true)
 
         const isStripe = isStripePayment(paymentType)
+        const isPayPal = isPayPalPayment(paymentType)
         const isPancake = isWaffoPancakePayment(paymentType)
         const response = isStripe
           ? await calculateStripeAmount({ amount: topupAmount })
+          : isPayPal
+            ? await calculatePayPalAmount({ amount: topupAmount })
           : isPancake
             ? await calculateWaffoPancakeAmount({ amount: topupAmount })
             : await calculateAmount({ amount: topupAmount })
@@ -82,6 +88,7 @@ export function usePayment() {
         setProcessing(true)
 
         const isStripe = isStripePayment(paymentType)
+        const isPayPal = isPayPalPayment(paymentType)
         const amount = Math.floor(topupAmount)
 
         const response = isStripe
@@ -89,6 +96,11 @@ export function usePayment() {
               amount,
               payment_method: 'stripe',
             })
+          : isPayPal
+            ? await requestPayPalPayment({
+                amount,
+                payment_method: 'paypal',
+              })
           : await requestPayment({
               amount,
               payment_method: paymentType,
@@ -100,14 +112,34 @@ export function usePayment() {
         }
 
         // Handle Stripe payment
-        if (isStripe && response.data?.pay_link) {
-          window.open(response.data.pay_link as string, '_blank')
+        const payLink =
+          response.data &&
+          typeof response.data === 'object' &&
+          'pay_link' in response.data &&
+          typeof response.data.pay_link === 'string'
+            ? response.data.pay_link
+            : ''
+        if (isStripe && payLink) {
+          window.open(payLink, '_blank')
+          toast.success(i18next.t('Redirecting to payment page...'))
+          return true
+        }
+
+        const approveLink =
+          response.data &&
+          typeof response.data === 'object' &&
+          'approve_link' in response.data &&
+          typeof response.data.approve_link === 'string'
+            ? response.data.approve_link
+            : ''
+        if (isPayPal && approveLink) {
+          window.open(approveLink, '_blank')
           toast.success(i18next.t('Redirecting to payment page...'))
           return true
         }
 
         // Handle non-Stripe payment
-        if (!isStripe && response.data) {
+        if (!isStripe && !isPayPal && response.data) {
           const url = (response as unknown as { url?: string }).url
           if (url) {
             submitPaymentForm(url, response.data)

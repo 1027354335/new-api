@@ -241,6 +241,11 @@ export type BillingSettings = {
   CreemWebhookSecret: string
   CreemTestMode: boolean
   CreemProducts: string
+  PayPalEnabled: boolean
+  PayPalClientId: string
+  PayPalClientSecret: string
+  PayPalMode: string
+  PayPalCallbackUrl: string
   WaffoEnabled: boolean
   WaffoApiKey: string
   WaffoPrivateKey: string

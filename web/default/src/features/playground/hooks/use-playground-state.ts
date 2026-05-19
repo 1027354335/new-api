@@ -132,6 +132,15 @@ export function usePlaygroundState() {
     return /^\d+$/.test(session.id) ? session.id : null
   }, [])
 
+  const isPlaceholderSession = useCallback((session: PlaygroundSession) => {
+    return (
+      !session.remoteId &&
+      !/^\d+$/.test(session.id) &&
+      session.messages.length === 0 &&
+      !session.selectedImage
+    )
+  }, [])
+
   const persistSessions = useCallback((nextSessions: PlaygroundSession[]) => {
     sessionsRef.current = nextSessions
     setSessions(nextSessions)
@@ -354,6 +363,9 @@ export function usePlaygroundState() {
 
         const localOnly = current.filter((session) => {
           if (usedLocalIds.has(session.id)) return false
+          if (isPlaceholderSession(session) && nextSessions.length > 0) {
+            return false
+          }
           return !getRemoteKey(session) || hasInFlightMessage(session)
         })
 
@@ -377,7 +389,7 @@ export function usePlaygroundState() {
         return next
       })
     },
-    [getRemoteKey, hasInFlightMessage]
+    [getRemoteKey, hasInFlightMessage, isPlaceholderSession]
   )
 
   const switchSession = useCallback((sessionId: string) => {

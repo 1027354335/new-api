@@ -17,6 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useState } from 'react'
+import {
+  DownloadIcon,
+  FileSpreadsheetIcon,
+  FileTextIcon,
+  ImageIcon,
+  PresentationIcon,
+} from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -51,7 +59,11 @@ import {
 import { MESSAGE_ROLES } from '../constants'
 import { getMessageContentStyles } from '../lib/message-styles'
 import { parseThinkTags } from '../lib/message-utils'
-import type { Message as MessageType } from '../types'
+import type {
+  GeneratedFile,
+  GeneratedImage,
+  Message as MessageType,
+} from '../types'
 import { MessageActions } from './message-actions'
 import { MessageError } from './message-error'
 
@@ -66,6 +78,9 @@ interface PlaygroundChatProps {
   onSaveEdit?: (newContent: string) => void
   onCancelEdit?: (open: boolean) => void
   onSaveEditAndSubmit?: (newContent: string) => void
+  selectedImageUrl?: string | null
+  onSelectGeneratedImage?: (image: GeneratedImage) => void
+  onSelectAttachmentImage?: (image: GeneratedImage) => void
 }
 
 export function PlaygroundChat({
@@ -79,7 +94,11 @@ export function PlaygroundChat({
   onSaveEdit,
   onCancelEdit,
   onSaveEditAndSubmit,
+  selectedImageUrl,
+  onSelectGeneratedImage,
+  onSelectAttachmentImage,
 }: PlaygroundChatProps) {
+  const { t } = useTranslation()
   const [editText, setEditText] = useState('')
   const [originalText, setOriginalText] = useState('')
 
@@ -99,6 +118,12 @@ export function PlaygroundChat({
     () => editText !== originalText,
     [editText, originalText]
   )
+  const getFileIcon = (file: GeneratedFile) => {
+    if (file.kind === 'excel') return FileSpreadsheetIcon
+    if (file.kind === 'powerpoint') return PresentationIcon
+    return FileTextIcon
+  }
+
   return (
     <Conversation>
       {/* Remove outer padding; apply padding to inner centered container to align with input */}
@@ -137,7 +162,7 @@ export function PlaygroundChat({
                                   }
                                   disabled={isEmpty || !isChanged}
                                 >
-                                  Save & Submit
+                                  {t('Save & Submit')}
                                 </Button>
                               )}
                               <Button
@@ -145,14 +170,14 @@ export function PlaygroundChat({
                                 onClick={() => onSaveEdit?.(editText)}
                                 disabled={isEmpty || !isChanged}
                               >
-                                Save
+                                {t('Save')}
                               </Button>
                               <Button
                                 size='sm'
                                 variant='outline'
                                 onClick={() => onCancelEdit?.(false)}
                               >
-                                Cancel
+                                {t('Cancel')}
                               </Button>
                             </div>
                           </div>
@@ -174,6 +199,8 @@ export function PlaygroundChat({
                                 (message.from === MESSAGE_ROLES.USER ||
                                   !message.isReasoningStreaming) &&
                                 !!version.content
+                              const generatedFiles =
+                                message.generatedFiles ?? []
 
                               // Extract visible content (remove <think> tags for assistant messages)
                               const displayContent = isAssistant
@@ -192,6 +219,15 @@ export function PlaygroundChat({
                                   className='mt-1'
                                 />
                               )
+                              const imageAttachments =
+                                message.attachments?.filter((attachment) =>
+                                  attachment.mediaType?.startsWith('image/')
+                                ) ?? []
+                              const fileAttachments =
+                                message.attachments?.filter(
+                                  (attachment) =>
+                                    !attachment.mediaType?.startsWith('image/')
+                                ) ?? []
 
                               return (
                                 <>
@@ -233,7 +269,7 @@ export function PlaygroundChat({
                                     <div className='flex items-center gap-2 py-2'>
                                       <Loader />
                                       <Shimmer className='text-sm' duration={1}>
-                                        Responding...
+                                        {t('Responding...')}
                                       </Shimmer>
                                     </div>
                                   )}
@@ -248,8 +284,145 @@ export function PlaygroundChat({
                                       {actions}
                                     </>
                                   ) : (
-                                    showMessageContent && (
+                                    (showMessageContent ||
+                                      imageAttachments.length > 0 ||
+                                      fileAttachments.length > 0 ||
+                                      generatedFiles.length > 0) && (
                                       <>
+                                        {imageAttachments.length > 0 && (
+                                          <div className='mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3'>
+                                            {imageAttachments.map(
+                                              (attachment) => (
+                                                <button
+                                                  type='button'
+                                                  key={attachment.id}
+                                                  onClick={() =>
+                                                    onSelectAttachmentImage?.({
+                                                      id: attachment.id,
+                                                      url: attachment.url,
+                                                      revisedPrompt:
+                                                        version.content,
+                                                    })
+                                                  }
+                                                  className={cn(
+                                                    'border-border bg-muted/20 hover:border-primary/50 focus-visible:border-ring focus-visible:ring-ring/50 relative overflow-hidden rounded-lg border text-left transition focus-visible:ring-3 focus-visible:outline-hidden',
+                                                    selectedImageUrl ===
+                                                      attachment.url &&
+                                                      'border-primary ring-primary/20 ring-2'
+                                                  )}
+                                                >
+                                                  <img
+                                                    src={attachment.url}
+                                                    alt={
+                                                      attachment.name ||
+                                                      t('Attached image')
+                                                    }
+                                                    className='aspect-square w-full object-cover'
+                                                  />
+                                                  <span className='bg-background/90 text-foreground absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs shadow-sm'>
+                                                    <ImageIcon className='size-3' />
+                                                    {selectedImageUrl ===
+                                                    attachment.url
+                                                      ? t('Selected')
+                                                      : t('Use for edit')}
+                                                  </span>
+                                                </button>
+                                              )
+                                            )}
+                                          </div>
+                                        )}
+                                        {fileAttachments.length > 0 && (
+                                          <div className='mb-3 flex flex-wrap gap-2'>
+                                            {fileAttachments.map(
+                                              (attachment) => (
+                                                <span
+                                                  key={attachment.id}
+                                                  className='border-border bg-muted/40 text-muted-foreground inline-flex max-w-56 items-center gap-1.5 rounded-md border px-2 py-1 text-xs'
+                                                >
+                                                  <span className='truncate'>
+                                                    {attachment.name ||
+                                                      t('Attachment')}
+                                                  </span>
+                                                </span>
+                                              )
+                                            )}
+                                          </div>
+                                        )}
+                                        {generatedFiles.length > 0 && (
+                                          <div className='mb-3 flex flex-col gap-2'>
+                                            {generatedFiles.map((file) => {
+                                              const FileIcon =
+                                                getFileIcon(file)
+                                              return (
+                                                <div
+                                                  key={file.id}
+                                                  className='border-border bg-muted/30 flex min-w-0 items-center justify-between gap-3 rounded-lg border px-3 py-2'
+                                                >
+                                                  <div className='flex min-w-0 items-center gap-2'>
+                                                    <FileIcon className='text-muted-foreground size-4 shrink-0' />
+                                                    <div className='min-w-0'>
+                                                      <div className='truncate text-sm font-medium'>
+                                                        {file.name}
+                                                      </div>
+                                                      {!!file.size && (
+                                                        <div className='text-muted-foreground text-xs'>
+                                                          {Math.ceil(
+                                                            file.size / 1024
+                                                          )}{' '}
+                                                          KB
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                  <a
+                                                    href={file.url}
+                                                    download={file.name}
+                                                    className='border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors'
+                                                  >
+                                                    <DownloadIcon className='size-4' />
+                                                    {t('Download')}
+                                                  </a>
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        )}
+                                        {!!message.generatedImages?.length && (
+                                          <div className='mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2'>
+                                            {message.generatedImages.map(
+                                              (image, imageIndex) => (
+                                                <button
+                                                  type='button'
+                                                  key={image.id}
+                                                  onClick={() =>
+                                                    onSelectGeneratedImage?.(
+                                                      image
+                                                    )
+                                                  }
+                                                  className={cn(
+                                                    'border-border bg-muted/20 group/image hover:border-primary/50 focus-visible:border-ring focus-visible:ring-ring/50 relative overflow-hidden rounded-lg border text-left transition focus-visible:ring-3 focus-visible:outline-hidden',
+                                                    selectedImageUrl ===
+                                                      image.url &&
+                                                      'border-primary ring-primary/20 ring-2'
+                                                  )}
+                                                >
+                                                  <img
+                                                    src={image.url}
+                                                    alt={`${t('Generated image')} ${imageIndex + 1}`}
+                                                    className='aspect-square w-full object-cover'
+                                                  />
+                                                  <span className='bg-background/90 text-foreground absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs shadow-sm'>
+                                                    <ImageIcon className='size-3' />
+                                                    {selectedImageUrl ===
+                                                    image.url
+                                                      ? t('Selected')
+                                                      : t('Use for edit')}
+                                                  </span>
+                                                </button>
+                                              )
+                                            )}
+                                          </div>
+                                        )}
                                         <MessageContent
                                           variant='flat'
                                           className={cn(

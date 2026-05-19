@@ -30,6 +30,11 @@ export interface Message {
   key: string
   from: MessageRole
   versions: MessageVersion[]
+  attachments?: PlaygroundAttachment[]
+  generatedImages?: GeneratedImage[]
+  generatedFiles?: GeneratedFile[]
+  imageRequest?: PlaygroundImageRequest
+  imageTaskId?: string
   sources?: { href: string; title: string }[]
   reasoning?: {
     content: string
@@ -54,6 +59,14 @@ export interface ContentPart {
   image_url?: {
     url: string
   }
+}
+
+export interface PlaygroundAttachment {
+  id: string
+  url: string
+  name?: string
+  mediaType?: string
+  textContent?: string
 }
 
 export interface ChatCompletionRequest {
@@ -106,8 +119,87 @@ export interface ChatCompletionResponse {
   }
 }
 
+export interface GeneratedImage {
+  id: string
+  url: string
+  revisedPrompt?: string
+}
+
+export type GeneratedFileKind = 'excel' | 'word' | 'powerpoint'
+
+export interface GeneratedFile {
+  id: string
+  kind: GeneratedFileKind
+  name: string
+  url: string
+  mimeType: string
+  size?: number
+}
+
+export interface AssistantPostProcessResult {
+  content?: string
+  generatedFile?: GeneratedFile
+}
+
+export interface PlaygroundSession {
+  id: string
+  remoteId?: number
+  title: string
+  messages: Message[]
+  selectedImage?: GeneratedImage | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface PlaygroundSessionRecord {
+  id: number
+  title: string
+  messages: Message[]
+  selected_image?: GeneratedImage | null
+  created_time: number
+  updated_time: number
+}
+
+export interface PlaygroundSessionsPage {
+  page: number
+  page_size: number
+  total: number
+  items: PlaygroundSessionRecord[]
+}
+
+export interface PlaygroundImageRequest {
+  prompt: string
+  sourceImages?: string[]
+  sourceContext?: string
+}
+
+export interface ImageGenerationRequest {
+  model: string
+  group?: string
+  prompt: string
+  n?: number
+  size?: string
+  quality?: string
+  moderation?: string
+  input_fidelity?: string
+  images?: string[]
+}
+
+export interface ImageGenerationResponse {
+  created?: number
+  data?: Array<{
+    url?: string
+    b64_json?: string
+    revised_prompt?: string
+  }>
+  metadata?: unknown
+}
+
+export type PlaygroundMode = 'chat' | 'image'
+
 // Configuration types
 export interface PlaygroundConfig {
+  mode: PlaygroundMode
   model: string
   group: string
   temperature: number
@@ -117,6 +209,10 @@ export interface PlaygroundConfig {
   presence_penalty: number
   seed: number | null
   stream: boolean
+  imageSize: string
+  imageQuality: string
+  imageModeration: string
+  imageCount: number
 }
 
 export interface ParameterEnabled {

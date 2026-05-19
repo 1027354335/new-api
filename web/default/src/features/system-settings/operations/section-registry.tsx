@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { SystemBehaviorSection } from '../general/system-behavior-section'
 import { EmailSettingsSection } from '../integrations/email-settings-section'
 import { MonitoringSettingsSection } from '../integrations/monitoring-settings-section'
+import { StorageSettingsSection } from '../integrations/storage-settings-section'
 import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
@@ -94,6 +95,25 @@ const OPERATIONS_SECTIONS = [
           WorkerValidKey: settings.WorkerValidKey,
           WorkerAllowHttpImageRequestEnabled:
             settings.WorkerAllowHttpImageRequestEnabled,
+        }}
+      />
+    ),
+  },
+  {
+    id: 'file-storage',
+    titleKey: 'File Storage',
+    descriptionKey: 'Configure MinIO storage server for chat and generated images',
+    build: (settings: OperationsSettings) => (
+      <StorageSettingsSection
+        defaultValues={{
+          'storage_setting.enabled': settings['storage_setting.enabled'] ?? false,
+          'storage_setting.endpoint': settings['storage_setting.endpoint'] ?? '',
+          'storage_setting.bucket': settings['storage_setting.bucket'] ?? '',
+          'storage_setting.access_key': settings['storage_setting.access_key'] ?? '',
+          'storage_setting.secret_key': settings['storage_setting.secret_key'] ?? '',
+          'storage_setting.use_ssl': settings['storage_setting.use_ssl'] ?? false,
+          'storage_setting.region': settings['storage_setting.region'] ?? '',
+          'storage_setting.url_prefix': settings['storage_setting.url_prefix'] ?? '',
         }}
       />
     ),

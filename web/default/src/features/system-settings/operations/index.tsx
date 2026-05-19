@@ -65,6 +65,14 @@ const defaultOperationsSettings: OperationsSettings = {
   'perf_metrics_setting.flush_interval': 5,
   'perf_metrics_setting.bucket_time': 'hour',
   'perf_metrics_setting.retention_days': 0,
+  'storage_setting.enabled': false,
+  'storage_setting.endpoint': '',
+  'storage_setting.bucket': '',
+  'storage_setting.access_key': '',
+  'storage_setting.secret_key': '',
+  'storage_setting.use_ssl': false,
+  'storage_setting.region': '',
+  'storage_setting.url_prefix': '',
 }
 
 export function OperationsSettings() {
@@ -93,6 +101,7 @@ export function OperationsSettings() {
     | 'monitoring'
     | 'email'
     | 'worker'
+    | 'file-storage'
     | 'logs'
     | 'performance'
     | 'update-checker'

@@ -3,6 +3,7 @@ package helper
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/samber/lo"
 
@@ -179,6 +181,42 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 		err := common.UnmarshalBodyReusable(c, imageRequest)
 		if err != nil {
 			return nil, err
+		}
+
+		// Normalize images and mask fields for JSON requests
+		modified := false
+		if len(imageRequest.Images) > 0 {
+			normalizedImages, err := service.NormalizeImagesField(c.Request.Context(), imageRequest.Images)
+			if err == nil {
+				imageRequest.Images = normalizedImages
+				modified = true
+			}
+		}
+		if len(imageRequest.Mask) > 0 {
+			normalizedMask, err := service.NormalizeMaskField(c.Request.Context(), imageRequest.Mask)
+			if err == nil {
+				imageRequest.Mask = normalizedMask
+				modified = true
+			}
+		}
+
+		// Clear input_fidelity if model is not gpt-image-1.5
+		if len(imageRequest.InputFidelity) > 0 && !strings.Contains(imageRequest.Model, "gpt-image-1.5") {
+			imageRequest.InputFidelity = nil
+			modified = true
+		}
+
+		if modified {
+			// Serialize and override body storage so downstream pass-through uses the normalized payload
+			modifiedData, err := common.Marshal(imageRequest)
+			if err == nil {
+				newStorage, err := common.CreateBodyStorage(modifiedData)
+				if err == nil {
+					c.Set(common.KeyBodyStorage, newStorage)
+					c.Request.Body = io.NopCloser(newStorage)
+					c.Request.ContentLength = int64(len(modifiedData))
+				}
+			}
 		}
 
 		if imageRequest.Model == "" {

@@ -35,6 +35,9 @@ export const MESSAGE_STATUS = {
 // API endpoints
 export const API_ENDPOINTS = {
   CHAT_COMPLETIONS: '/pg/chat/completions',
+  IMAGE_GENERATIONS: '/pg/images/generations',
+  IMAGE_EDITS: '/pg/images/edits',
+  PLAYGROUND_SESSIONS: '/api/playground/sessions',
   USER_MODELS: '/api/user/models',
   USER_GROUPS: '/api/user/self/groups',
 } as const
@@ -45,6 +48,7 @@ export const DEFAULT_GROUP = 'default' as const
 
 // Default configuration
 export const DEFAULT_CONFIG: PlaygroundConfig = {
+  mode: 'chat',
   model: 'gpt-4o',
   group: DEFAULT_GROUP,
   temperature: 0.7,
@@ -54,6 +58,10 @@ export const DEFAULT_CONFIG: PlaygroundConfig = {
   presence_penalty: 0,
   seed: null,
   stream: true,
+  imageSize: '1024x1024',
+  imageQuality: 'auto',
+  imageModeration: 'auto',
+  imageCount: 1,
 }
 
 export const DEFAULT_PARAMETER_ENABLED: ParameterEnabled = {
@@ -69,6 +77,8 @@ export const DEFAULT_PARAMETER_ENABLED: ParameterEnabled = {
 export const STORAGE_KEYS = {
   CONFIG: 'playground_config',
   MESSAGES: 'playground_messages',
+  SESSIONS: 'playground_sessions',
+  ACTIVE_SESSION_ID: 'playground_active_session_id',
   PARAMETER_ENABLED: 'playground_parameter_enabled',
 } as const
 

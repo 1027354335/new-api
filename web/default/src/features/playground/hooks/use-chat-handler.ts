@@ -27,13 +27,21 @@ import {
   processStreamingContent,
   finalizeMessage,
 } from '../lib'
-import type { Message, PlaygroundConfig, ParameterEnabled } from '../types'
+import type {
+  AssistantPostProcessResult,
+  Message,
+  PlaygroundConfig,
+  ParameterEnabled,
+} from '../types'
 import { useStreamRequest } from './use-stream-request'
 
 interface UseChatHandlerOptions {
   config: PlaygroundConfig
   parameterEnabled: ParameterEnabled
   onMessageUpdate: (updater: (prev: Message[]) => Message[]) => void
+  onAssistantComplete?: (
+    content: string
+  ) => Promise<AssistantPostProcessResult | null> | AssistantPostProcessResult | null
 }
 
 /**
@@ -43,8 +51,47 @@ export function useChatHandler({
   config,
   parameterEnabled,
   onMessageUpdate,
+  onAssistantComplete,
 }: UseChatHandlerOptions) {
   const { sendStreamRequest, stopStream, isStreaming } = useStreamRequest()
+
+  const postProcessAssistantMessage = useCallback(
+    (messageKey: string, content: string) => {
+      if (!onAssistantComplete || !content.trim()) return
+
+      void Promise.resolve(onAssistantComplete(content))
+        .then((result) => {
+          if (!result) return
+          onMessageUpdate((prev) =>
+            prev.map((message) => {
+              if (message.key !== messageKey) return message
+              return {
+                ...message,
+                versions: result.content
+                  ? [
+                      {
+                        ...message.versions[0],
+                        content: result.content,
+                      },
+                    ]
+                  : message.versions,
+                generatedFiles: result.generatedFile
+                  ? [
+                      ...(message.generatedFiles ?? []),
+                      result.generatedFile,
+                    ]
+                  : message.generatedFiles,
+              }
+            })
+          )
+        })
+        .catch((error: unknown) => {
+          const err = error as { message?: string }
+          toast.error(err?.message || ERROR_MESSAGES.API_REQUEST_ERROR)
+        })
+    },
+    [onAssistantComplete, onMessageUpdate]
+  )
 
   // Handle stream update
   const handleStreamUpdate = useCallback(
@@ -79,15 +126,29 @@ export function useChatHandler({
 
   // Handle stream complete
   const handleStreamComplete = useCallback(() => {
+    let completedMessageKey = ''
+    let completedContent = ''
     onMessageUpdate((prev) =>
-      updateLastAssistantMessage(prev, (message) =>
-        message.status === MESSAGE_STATUS.COMPLETE ||
-        message.status === MESSAGE_STATUS.ERROR
-          ? message
-          : { ...finalizeMessage(message), status: MESSAGE_STATUS.COMPLETE }
-      )
+      updateLastAssistantMessage(prev, (message) => {
+        if (
+          message.status === MESSAGE_STATUS.COMPLETE ||
+          message.status === MESSAGE_STATUS.ERROR
+        ) {
+          return message
+        }
+        const completedMessage = {
+          ...finalizeMessage(message),
+          status: MESSAGE_STATUS.COMPLETE,
+        }
+        completedMessageKey = completedMessage.key
+        completedContent = completedMessage.versions[0]?.content || ''
+        return completedMessage
+      })
     )
-  }, [onMessageUpdate])
+    if (completedMessageKey) {
+      postProcessAssistantMessage(completedMessageKey, completedContent)
+    }
+  }, [onMessageUpdate, postProcessAssistantMessage])
 
   // Handle stream error
   const handleStreamError = useCallback(
@@ -139,23 +200,33 @@ export function useChatHandler({
         const choice = response.choices?.[0]
         if (!choice) return
 
+        let completedMessageKey = ''
+        let completedContent = ''
         onMessageUpdate((prev) =>
-          updateLastAssistantMessage(prev, (message) => ({
-            ...finalizeMessage(
-              {
-                ...message,
-                versions: [
-                  {
-                    ...message.versions[0],
-                    content: choice.message?.content || '',
-                  },
-                ],
-              },
-              choice.message?.reasoning_content
-            ),
-            status: MESSAGE_STATUS.COMPLETE,
-          }))
+          updateLastAssistantMessage(prev, (message) => {
+            const completedMessage = {
+              ...finalizeMessage(
+                {
+                  ...message,
+                  versions: [
+                    {
+                      ...message.versions[0],
+                      content: choice.message?.content || '',
+                    },
+                  ],
+                },
+                choice.message?.reasoning_content
+              ),
+              status: MESSAGE_STATUS.COMPLETE,
+            }
+            completedMessageKey = completedMessage.key
+            completedContent = completedMessage.versions[0]?.content || ''
+            return completedMessage
+          })
         )
+        if (completedMessageKey) {
+          postProcessAssistantMessage(completedMessageKey, completedContent)
+        }
       } catch (error: unknown) {
         const err = error as {
           response?: {
@@ -171,7 +242,13 @@ export function useChatHandler({
         )
       }
     },
-    [config, parameterEnabled, onMessageUpdate, handleStreamError]
+    [
+      config,
+      parameterEnabled,
+      onMessageUpdate,
+      handleStreamError,
+      postProcessAssistantMessage,
+    ]
   )
 
   // Send chat request (stream or non-stream based on config)

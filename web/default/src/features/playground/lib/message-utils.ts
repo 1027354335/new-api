@@ -19,10 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { nanoid } from 'nanoid'
 import { MESSAGE_ROLES, MESSAGE_STATUS, ERROR_MESSAGES } from '../constants'
 import type {
+  GeneratedImage,
   Message,
   MessageVersion,
   ChatCompletionMessage,
   ContentPart,
+  PlaygroundImageRequest,
 } from '../types'
 
 /**
@@ -67,6 +69,16 @@ export function createUserMessage(content: string): Message {
   }
 }
 
+export function createUserMessageWithAttachments(
+  content: string,
+  attachments = [] as Message['attachments']
+): Message {
+  return {
+    ...createUserMessage(content),
+    attachments,
+  }
+}
+
 /**
  * Create a loading assistant message
  */
@@ -80,6 +92,21 @@ export function createLoadingAssistantMessage(): Message {
     isContentComplete: false,
     isReasoningStreaming: false,
     status: MESSAGE_STATUS.LOADING,
+  }
+}
+
+export function createImageAssistantMessage(
+  images: GeneratedImage[],
+  content: string,
+  imageRequest?: PlaygroundImageRequest
+): Message {
+  return {
+    key: nanoid(),
+    from: MESSAGE_ROLES.ASSISTANT,
+    versions: [createMessageVersion(content)],
+    generatedImages: images,
+    imageRequest,
+    status: MESSAGE_STATUS.COMPLETE,
   }
 }
 
@@ -131,9 +158,36 @@ export function getTextContent(content: string | ContentPart[]): string {
  */
 export function formatMessageForAPI(message: Message): ChatCompletionMessage {
   const currentVersion = getCurrentVersion(message)
+  const imageUrls =
+    message.attachments
+      ?.filter((attachment) => attachment.mediaType?.startsWith('image/'))
+      .map((attachment) => attachment.url) ?? []
+  const fileNames =
+    message.attachments
+      ?.filter((attachment) => !attachment.mediaType?.startsWith('image/'))
+      .map((attachment) => attachment.name)
+      .filter(Boolean) ?? []
+  const fileContents =
+    message.attachments
+      ?.filter((attachment) => !attachment.mediaType?.startsWith('image/'))
+      .map((attachment) => {
+        const label = attachment.name || 'Attachment'
+        if (!attachment.textContent?.trim())
+          return `- ${label}: no readable text content was extracted.`
+        return `### ${label}\n${attachment.textContent.trim()}`
+      }) ?? []
+  const content = fileContents.length
+    ? `${currentVersion.content}\n\nAttached file contents:\n${fileContents.join('\n\n')}`.trim()
+    : fileNames.length
+      ? `${currentVersion.content}\n\nAttachments: ${fileNames.join(', ')}`.trim()
+      : currentVersion.content
+
   return {
     role: message.from,
-    content: currentVersion.content,
+    content:
+      message.from === MESSAGE_ROLES.USER && imageUrls.length > 0
+        ? buildMessageContent(content, imageUrls)
+        : content,
   }
 }
 
@@ -146,6 +200,7 @@ export function isValidMessage(message: Message): boolean {
 
   const content = message.versions[0]?.content
   if (content === undefined) return false
+  if (message.attachments?.length) return true
 
   // Exclude empty assistant messages (loading/streaming placeholders)
   if (message.from === 'assistant' && !content.trim()) return false

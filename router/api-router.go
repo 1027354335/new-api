@@ -31,6 +31,19 @@ func SetApiRouter(router *gin.Engine) {
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
+		apiRouter.GET("/playground/images/*path", middleware.UserAuth(), controller.GetPlaygroundImage)
+		apiRouter.POST("/playground/images/upload", middleware.UserAuth(), controller.UploadPlaygroundImage)
+		apiRouter.POST("/storage/test", middleware.AdminAuth(), controller.TestStorageConnection)
+
+		playgroundSessionsRoute := apiRouter.Group("/playground/sessions")
+		playgroundSessionsRoute.Use(middleware.UserAuth())
+		{
+			playgroundSessionsRoute.GET("", controller.ListPlaygroundSessions)
+			playgroundSessionsRoute.POST("", controller.CreatePlaygroundSession)
+			playgroundSessionsRoute.GET("/:id", controller.GetPlaygroundSession)
+			playgroundSessionsRoute.PUT("/:id", controller.UpdatePlaygroundSession)
+			playgroundSessionsRoute.DELETE("/:id", controller.DeletePlaygroundSession)
+		}
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
 		perfMetricsRoute.Use(middleware.HeaderNavModulePublicOrUserAuth("pricing"))
 		{

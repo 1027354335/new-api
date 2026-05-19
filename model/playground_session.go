@@ -17,6 +17,21 @@ type PlaygroundSession struct {
 	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
+type PlaygroundSessionMySQL struct {
+	Id            int            `json:"id"`
+	UserId        int            `json:"user_id" gorm:"index;not null"`
+	Title         string         `json:"title" gorm:"type:varchar(128);not null"`
+	Messages      JSONValue      `json:"messages" gorm:"type:longtext"`
+	SelectedImage JSONValue      `json:"selected_image" gorm:"type:longtext"`
+	CreatedTime   int64          `json:"created_time" gorm:"bigint;index"`
+	UpdatedTime   int64          `json:"updated_time" gorm:"bigint;index"`
+	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+func (PlaygroundSessionMySQL) TableName() string {
+	return "playground_sessions"
+}
+
 func (s *PlaygroundSession) Insert() error {
 	now := common.GetTimestamp()
 	s.CreatedTime = now

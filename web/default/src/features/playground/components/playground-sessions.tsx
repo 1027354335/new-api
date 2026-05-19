@@ -20,6 +20,10 @@ import { MessageSquareIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  estimatePersistedSessionBytes,
+  MAX_PERSISTED_SESSION_BYTES,
+} from '../lib'
 import type { PlaygroundSession } from '../types'
 
 interface PlaygroundSessionsProps {
@@ -38,6 +42,11 @@ function formatSessionTime(timestamp: number) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(timestamp))
+}
+
+function getSessionStoragePercent(session: PlaygroundSession) {
+  const bytes = estimatePersistedSessionBytes(session)
+  return Math.min(100, Math.max(0, Math.ceil((bytes / MAX_PERSISTED_SESSION_BYTES) * 100)))
 }
 
 export function PlaygroundSessions({
@@ -64,29 +73,48 @@ export function PlaygroundSessions({
         <div className='text-muted-foreground mb-2 px-2 text-xs font-medium'>
           {t('Conversation history')}
         </div>
-        <div className='grid max-h-full gap-1 overflow-y-auto pr-1'>
+        <div className='grid max-h-full gap-1 overflow-y-auto overflow-x-hidden pr-1'>
           {sessions.map((session) => {
             const isActive = session.id === activeSessionId
+            const storagePercent = getSessionStoragePercent(session)
             return (
               <div
                 key={session.id}
                 className={cn(
-                  'group/session flex items-center gap-1 rounded-lg',
+                  'group/session relative min-w-0 max-w-full overflow-hidden rounded-lg',
                   isActive && 'bg-muted'
                 )}
               >
                 <button
                   type='button'
-                  className='hover:bg-muted flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left text-sm'
+                  className='hover:bg-muted flex w-full min-w-0 max-w-full items-start gap-2 overflow-hidden rounded-lg py-2 pr-9 pl-2 text-left text-sm'
                   onClick={() => onSwitchSession(session.id)}
                 >
-                  <MessageSquareIcon className='text-muted-foreground size-4 shrink-0' />
-                  <span className='min-w-0 flex-1'>
+                  <MessageSquareIcon className='text-muted-foreground mt-0.5 size-4 shrink-0' />
+                  <span className='block min-w-0 flex-1 overflow-hidden'>
                     <span className='block truncate font-medium'>
                       {session.title || t('Untitled conversation')}
                     </span>
                     <span className='text-muted-foreground block truncate text-xs'>
                       {formatSessionTime(session.updatedAt)}
+                    </span>
+                    <span className='mt-1.5 flex min-w-0 max-w-full items-center gap-2 overflow-hidden'>
+                      <span className='bg-muted-foreground/15 h-1.5 min-w-0 flex-1 overflow-hidden rounded-full'>
+                        <span
+                          className={cn(
+                            'block h-full rounded-full',
+                            storagePercent >= 90
+                              ? 'bg-destructive'
+                              : storagePercent >= 70
+                                ? 'bg-amber-500'
+                                : 'bg-primary'
+                          )}
+                          style={{ width: `${storagePercent}%` }}
+                        />
+                      </span>
+                      <span className='text-muted-foreground w-8 text-right text-[10px] leading-none'>
+                        {storagePercent}%
+                      </span>
                     </span>
                   </span>
                 </button>
@@ -94,9 +122,8 @@ export function PlaygroundSessions({
                   type='button'
                   variant='ghost'
                   size='icon-sm'
-                  className='mr-1 opacity-0 group-hover/session:opacity-100'
+                  className='bg-background/90 absolute top-2 right-1 z-10 shrink-0 opacity-0 shadow-sm transition-opacity group-hover/session:opacity-100 focus-visible:opacity-100'
                   onClick={() => onDeleteSession(session.id)}
-                  disabled={sessions.length <= 1}
                   aria-label={t('Delete conversation')}
                 >
                   <Trash2Icon className='size-4' />

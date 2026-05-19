@@ -388,8 +388,11 @@ export function usePlaygroundState() {
         setActiveSessionId(normalized[0].id)
         saveActiveSessionId(normalized[0].id)
       }
+      if (nextSessions.length === 0) {
+        void persistSessionRemote(normalized[0])
+      }
     },
-    [activeSessionId, persistSessions]
+    [activeSessionId, persistSessionRemote, persistSessions]
   )
 
   // Clear all messages

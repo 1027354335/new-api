@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useRef, type ReactNode } from 'react'
 import {
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
   ImageIcon,
   MessageSquareTextIcon,
   SlidersHorizontalIcon,
@@ -82,6 +84,7 @@ export function PlaygroundSettings({
   const { t } = useTranslation()
   const isImageMode = config.mode === 'image'
 
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -139,11 +142,38 @@ export function PlaygroundSettings({
     }
   }
 
+  if (isCollapsed) {
+    return (
+      <aside className='border-border/70 bg-background/95 hidden w-12 shrink-0 border-l px-2 py-4 lg:flex lg:flex-col lg:items-center'>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon-sm'
+          onClick={() => setIsCollapsed(false)}
+          aria-label={t('Expand parameters')}
+        >
+          <ChevronsLeftIcon className='size-4' />
+        </Button>
+      </aside>
+    )
+  }
+
   return (
     <aside className='border-border/70 bg-background/95 hidden w-72 shrink-0 border-l px-4 py-4 lg:flex lg:flex-col lg:gap-5'>
       <div className='flex items-center gap-2'>
         <SlidersHorizontalIcon className='text-muted-foreground size-4' />
-        <h2 className='text-sm font-semibold'>{t('Parameters')}</h2>
+        <h2 className='min-w-0 flex-1 truncate text-sm font-semibold'>
+          {t('Parameters')}
+        </h2>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon-sm'
+          onClick={() => setIsCollapsed(true)}
+          aria-label={t('Collapse parameters')}
+        >
+          <ChevronsRightIcon className='size-4' />
+        </Button>
       </div>
 
       <div className='grid grid-cols-2 gap-2'>

@@ -21,12 +21,17 @@ import { STORAGE_KEYS } from '../constants'
 import type {
   GeneratedFile,
   GeneratedImage,
+  PlaygroundAttachment,
   PlaygroundConfig,
   ParameterEnabled,
   Message,
   PlaygroundSession,
 } from '../types'
 import { sanitizeMessagesOnLoad } from './message-utils'
+
+export const MAX_PERSISTED_SESSION_BYTES = 1_800_000
+const MAX_PERSISTED_MESSAGE_TEXT = 120_000
+const MAX_PERSISTED_ATTACHMENT_TEXT = 20_000
 
 /**
  * Load playground config from localStorage
@@ -164,13 +169,36 @@ function stripStoredFile(file?: GeneratedFile | null) {
   return file
 }
 
+function stripStoredAttachment(
+  attachment: NonNullable<Message['attachments']>[number]
+): PlaygroundAttachment | null {
+  if (isInlineImageUrl(attachment.url)) return null
+  const trimmed: PlaygroundAttachment = {
+    ...attachment,
+  }
+  if (
+    trimmed.textContent &&
+    trimmed.textContent.length > MAX_PERSISTED_ATTACHMENT_TEXT
+  ) {
+    trimmed.textContent = `${trimmed.textContent.slice(0, MAX_PERSISTED_ATTACHMENT_TEXT)}\n\n[Content truncated for storage]`
+  }
+  return trimmed
+}
+
 function stripStoredMessage(message: Message): Message {
+  const versions = message.versions.map((version) => ({
+    ...version,
+    content:
+      version.content.length > MAX_PERSISTED_MESSAGE_TEXT
+        ? `${version.content.slice(0, MAX_PERSISTED_MESSAGE_TEXT)}\n\n[Content truncated for storage]`
+        : version.content,
+  }))
+
   return {
     ...message,
+    versions,
     attachments: message.attachments
-      ?.map((attachment) =>
-        isInlineImageUrl(attachment.url) ? null : attachment
-      )
+      ?.map(stripStoredAttachment)
       .filter(
         (
           attachment
@@ -194,13 +222,43 @@ function stripStoredMessage(message: Message): Message {
   }
 }
 
-export function prepareSessionForPersistence(
-  session: PlaygroundSession
-): PlaygroundSession {
-  return {
+function estimateSessionBytes(session: PlaygroundSession) {
+  return new Blob([JSON.stringify(session)]).size
+}
+
+export function estimatePersistedSessionBytes(session: PlaygroundSession) {
+  return estimateSessionBytes({
     ...session,
     messages: session.messages.map(stripStoredMessage),
     selectedImage: stripStoredImage(session.selectedImage),
+  })
+}
+
+function compactMessagesForPersistence(
+  session: PlaygroundSession
+): Message[] {
+  let messages = session.messages
+  let candidate = { ...session, messages }
+
+  while (messages.length > 1 && estimateSessionBytes(candidate) > MAX_PERSISTED_SESSION_BYTES) {
+    messages = messages.slice(1)
+    candidate = { ...candidate, messages }
+  }
+
+  return messages
+}
+
+export function prepareSessionForPersistence(
+  session: PlaygroundSession
+): PlaygroundSession {
+  const prepared = {
+    ...session,
+    messages: session.messages.map(stripStoredMessage),
+    selectedImage: stripStoredImage(session.selectedImage),
+  }
+  return {
+    ...prepared,
+    messages: compactMessagesForPersistence(prepared),
   }
 }
 

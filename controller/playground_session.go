@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,27 @@ type playgroundSessionRequest struct {
 	Title         string          `json:"title"`
 	Messages      model.JSONValue `json:"messages"`
 	SelectedImage model.JSONValue `json:"selected_image"`
+}
+
+const (
+	playgroundSessionMessagesMaxBytes      = 2 * 1024 * 1024
+	playgroundSessionSelectedImageMaxBytes = 256 * 1024
+)
+
+func validatePlaygroundSessionSize(messages model.JSONValue, selectedImage model.JSONValue) bool {
+	return len(messages) <= playgroundSessionMessagesMaxBytes &&
+		len(selectedImage) <= playgroundSessionSelectedImageMaxBytes
+}
+
+func playgroundSessionTooLarge(c *gin.Context) {
+	c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+		"success": false,
+		"message": fmt.Sprintf(
+			"playground session is too large, messages must be <= %d KB and selected image metadata must be <= %d KB",
+			playgroundSessionMessagesMaxBytes/1024,
+			playgroundSessionSelectedImageMaxBytes/1024,
+		),
+	})
 }
 
 func normalizePlaygroundSessionTitle(title string, messages model.JSONValue) string {
@@ -114,6 +136,10 @@ func CreatePlaygroundSession(c *gin.Context) {
 	}
 	req.Messages = normalizePlaygroundJSON(req.Messages, "[]")
 	req.SelectedImage = normalizePlaygroundJSON(req.SelectedImage, "null")
+	if !validatePlaygroundSessionSize(req.Messages, req.SelectedImage) {
+		playgroundSessionTooLarge(c)
+		return
+	}
 
 	// Strip bucket and prefix from the messages and selected_image before storing in DB
 	strippedMessages := service.ProcessPlaygroundJSONUrls(req.Messages, service.StripPlaygroundImageURL)
@@ -156,6 +182,10 @@ func UpdatePlaygroundSession(c *gin.Context) {
 	}
 	req.Messages = normalizePlaygroundJSON(req.Messages, "[]")
 	req.SelectedImage = normalizePlaygroundJSON(req.SelectedImage, "null")
+	if !validatePlaygroundSessionSize(req.Messages, req.SelectedImage) {
+		playgroundSessionTooLarge(c)
+		return
+	}
 
 	// Strip bucket and prefix before saving to DB
 	strippedMessages := service.ProcessPlaygroundJSONUrls(req.Messages, service.StripPlaygroundImageURL)

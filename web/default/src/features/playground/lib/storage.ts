@@ -33,12 +33,37 @@ export const MAX_PERSISTED_SESSION_BYTES = 1_800_000
 const MAX_PERSISTED_MESSAGE_TEXT = 120_000
 const MAX_PERSISTED_ATTACHMENT_TEXT = 20_000
 
+function getCurrentStorageUserId() {
+  try {
+    if (typeof window === 'undefined') return 'anonymous'
+    return window.localStorage.getItem('uid') || 'anonymous'
+  } catch {
+    return 'anonymous'
+  }
+}
+
+function getScopedStorageKey(key: string) {
+  return `${key}:${getCurrentStorageUserId()}`
+}
+
+function getStorageItem(key: string) {
+  return localStorage.getItem(getScopedStorageKey(key))
+}
+
+function setStorageItem(key: string, value: string) {
+  localStorage.setItem(getScopedStorageKey(key), value)
+}
+
+function removeStorageItem(key: string) {
+  localStorage.removeItem(getScopedStorageKey(key))
+}
+
 /**
  * Load playground config from localStorage
  */
 export function loadConfig(): Partial<PlaygroundConfig> {
   try {
-    const saved = localStorage.getItem(STORAGE_KEYS.CONFIG)
+    const saved = getStorageItem(STORAGE_KEYS.CONFIG)
     if (saved) {
       return JSON.parse(saved)
     }
@@ -54,7 +79,7 @@ export function loadConfig(): Partial<PlaygroundConfig> {
  */
 export function saveConfig(config: Partial<PlaygroundConfig>): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(config))
+    setStorageItem(STORAGE_KEYS.CONFIG, JSON.stringify(config))
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to save config:', error)
@@ -66,7 +91,7 @@ export function saveConfig(config: Partial<PlaygroundConfig>): void {
  */
 export function loadParameterEnabled(): Partial<ParameterEnabled> {
   try {
-    const saved = localStorage.getItem(STORAGE_KEYS.PARAMETER_ENABLED)
+    const saved = getStorageItem(STORAGE_KEYS.PARAMETER_ENABLED)
     if (saved) {
       return JSON.parse(saved)
     }
@@ -85,7 +110,7 @@ export function saveParameterEnabled(
 ): void {
   try {
     localStorage.setItem(
-      STORAGE_KEYS.PARAMETER_ENABLED,
+      getScopedStorageKey(STORAGE_KEYS.PARAMETER_ENABLED),
       JSON.stringify(parameterEnabled)
     )
   } catch (error) {
@@ -99,11 +124,11 @@ export function saveParameterEnabled(
  */
 export function loadMessages(): Message[] | null {
   try {
-    const saved = localStorage.getItem(STORAGE_KEYS.MESSAGES)
+    const saved = getStorageItem(STORAGE_KEYS.MESSAGES)
     if (saved) {
       const parsed: unknown = JSON.parse(saved)
       if (!Array.isArray(parsed)) {
-        localStorage.removeItem(STORAGE_KEYS.MESSAGES)
+        removeStorageItem(STORAGE_KEYS.MESSAGES)
         return null
       }
       const sanitized = sanitizeMessagesOnLoad(parsed as Message[])
@@ -125,7 +150,7 @@ export function loadMessages(): Message[] | null {
  */
 export function saveMessages(messages: Message[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages))
+    setStorageItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages))
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to save messages:', error)
@@ -268,7 +293,7 @@ function prepareSessionsForStorage(sessions: PlaygroundSession[]) {
 
 export function loadSessions(): PlaygroundSession[] {
   try {
-    const saved = localStorage.getItem(STORAGE_KEYS.SESSIONS)
+    const saved = getStorageItem(STORAGE_KEYS.SESSIONS)
     if (saved) {
       const parsed: unknown = JSON.parse(saved)
       if (Array.isArray(parsed)) {
@@ -312,7 +337,7 @@ export function loadSessions(): PlaygroundSession[] {
 export function saveSessions(sessions: PlaygroundSession[]): void {
   try {
     localStorage.setItem(
-      STORAGE_KEYS.SESSIONS,
+      getScopedStorageKey(STORAGE_KEYS.SESSIONS),
       JSON.stringify(prepareSessionsForStorage(sessions))
     )
   } catch (error) {
@@ -324,7 +349,7 @@ export function saveSessions(sessions: PlaygroundSession[]): void {
         })
       )
       localStorage.setItem(
-        STORAGE_KEYS.SESSIONS,
+        getScopedStorageKey(STORAGE_KEYS.SESSIONS),
         JSON.stringify(compactSessions)
       )
     } catch (compactError) {
@@ -336,7 +361,7 @@ export function saveSessions(sessions: PlaygroundSession[]): void {
 
 export function loadActiveSessionId(): string | null {
   try {
-    return localStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID)
+    return getStorageItem(STORAGE_KEYS.ACTIVE_SESSION_ID)
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to load active session:', error)
@@ -346,7 +371,7 @@ export function loadActiveSessionId(): string | null {
 
 export function saveActiveSessionId(sessionId: string): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION_ID, sessionId)
+    setStorageItem(STORAGE_KEYS.ACTIVE_SESSION_ID, sessionId)
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to save active session:', error)
@@ -358,11 +383,11 @@ export function saveActiveSessionId(sessionId: string): void {
  */
 export function clearPlaygroundData(): void {
   try {
-    localStorage.removeItem(STORAGE_KEYS.CONFIG)
-    localStorage.removeItem(STORAGE_KEYS.PARAMETER_ENABLED)
-    localStorage.removeItem(STORAGE_KEYS.MESSAGES)
-    localStorage.removeItem(STORAGE_KEYS.SESSIONS)
-    localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION_ID)
+    removeStorageItem(STORAGE_KEYS.CONFIG)
+    removeStorageItem(STORAGE_KEYS.PARAMETER_ENABLED)
+    removeStorageItem(STORAGE_KEYS.MESSAGES)
+    removeStorageItem(STORAGE_KEYS.SESSIONS)
+    removeStorageItem(STORAGE_KEYS.ACTIVE_SESSION_ID)
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to clear playground data:', error)

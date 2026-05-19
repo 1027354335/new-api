@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { nanoid } from 'nanoid'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
 import {
   getUserModels,
   getUserGroups,
@@ -112,6 +113,7 @@ function startImageTask(
 }
 
 export function Playground() {
+  const currentUserId = useAuthStore((state) => state.auth.user?.id)
   const {
     config,
     parameterEnabled,
@@ -225,18 +227,18 @@ export function Playground() {
 
   // Load models
   const { data: modelsData, isLoading: isLoadingModels } = useQuery({
-    queryKey: ['playground-models'],
+    queryKey: ['playground-models', currentUserId],
     queryFn: getUserModels,
   })
 
   // Load groups
   const { data: groupsData } = useQuery({
-    queryKey: ['playground-groups'],
+    queryKey: ['playground-groups', currentUserId],
     queryFn: getUserGroups,
   })
 
   const { data: sessionsData } = useQuery({
-    queryKey: ['playground-sessions'],
+    queryKey: ['playground-sessions', currentUserId],
     queryFn: getPlaygroundSessions,
   })
 

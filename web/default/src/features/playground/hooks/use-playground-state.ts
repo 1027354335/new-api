@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useAuthStore } from '@/stores/auth-store'
 import {
   createPlaygroundSession,
   deletePlaygroundSession as deletePlaygroundSessionApi,
@@ -49,6 +50,7 @@ import type {
  * Main state management hook for playground
  */
 export function usePlaygroundState() {
+  const currentUserId = useAuthStore((state) => state.auth.user?.id)
   const initialSessions = useMemo(() => loadSessions(), [])
   const pendingCreatesRef = useRef(
     new Map<string, Promise<number | undefined>>()
@@ -73,6 +75,7 @@ export function usePlaygroundState() {
     return initialSessions
   })
   const sessionsRef = useRef(initialSessions)
+  const userIdRef = useRef(currentUserId)
 
   const [activeSessionId, setActiveSessionId] = useState<string>(() => {
     const savedId = loadActiveSessionId()
@@ -90,6 +93,30 @@ export function usePlaygroundState() {
     sessions.find((session) => session.id === activeSessionId) ?? sessions[0]
   const messages = activeSession?.messages ?? []
   const selectedImage = activeSession?.selectedImage ?? null
+
+  useEffect(() => {
+    if (userIdRef.current === currentUserId) return
+    userIdRef.current = currentUserId
+
+    queueMicrotask(() => {
+      const nextSessions = loadSessions()
+      sessionsRef.current = nextSessions
+      setSessions(nextSessions)
+      setActiveSessionId(() => {
+        const savedId = loadActiveSessionId()
+        return (
+          nextSessions.find((session) => session.id === savedId)?.id ??
+          nextSessions[0]?.id ??
+          createEmptySession().id
+        )
+      })
+      setConfig({ ...DEFAULT_CONFIG, ...loadConfig() })
+      setParameterEnabled({
+        ...DEFAULT_PARAMETER_ENABLED,
+        ...loadParameterEnabled(),
+      })
+    })
+  }, [currentUserId])
 
   const hasInFlightMessage = useCallback(
     (session: PlaygroundSession) =>

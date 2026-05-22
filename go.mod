@@ -60,6 +60,8 @@ require (
 	gorm.io/gorm v1.25.2
 )
 
+require github.com/waffo-com/waffo-pancake-sdk-go v0.2.0
+
 require (
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect

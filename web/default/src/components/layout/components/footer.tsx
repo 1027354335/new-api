@@ -41,6 +41,9 @@ interface FooterProps {
   className?: string
 }
 
+// ICP 备案号，修改为实际备案号
+const ICP_NUMBER = '川ICP备XXXXXXXX号'
+
 const NEW_API_FOOTER_ATTRIBUTION_KEY = [
   'footer',
   'new' + 'api',
@@ -224,9 +227,11 @@ export function Footer(props: FooterProps) {
           props.className
         )}
       >
-        <div className='mx-auto w-full max-w-6xl px-6 py-5'>
-          <div className='bg-muted/20 border-border/50 flex flex-col items-center justify-between gap-4 rounded-2xl border px-4 py-4 backdrop-blur-sm sm:flex-row sm:px-5'>
-            <div className='flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start'>
+        <div className='mx-auto w-full max-w-6xl px-6 py-8'>
+          {/* 主内容行 */}
+          <div className='flex flex-col items-center justify-between gap-6 sm:flex-row'>
+            {/* 左侧：自定义 HTML + 联系邮箱 */}
+            <div className='flex flex-col items-center gap-2 sm:items-start'>
               <div
                 className='custom-footer text-muted-foreground text-center text-sm sm:text-left'
                 dangerouslySetInnerHTML={{ __html: footerHtml }}
@@ -238,10 +243,23 @@ export function Footer(props: FooterProps) {
                 info@oss-energietechnik.de
               </a>
             </div>
-            <div className='border-border/60 text-muted-foreground/45 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t pt-4 text-xs sm:w-auto sm:justify-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5'>
+            {/* 右侧：法律链接 + 版权归属 */}
+            <div className='text-muted-foreground/45 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs sm:justify-end'>
               <LegalLinks />
               <ProjectAttribution currentYear={currentYear} inline />
             </div>
+          </div>
+
+          {/* ICP 备案 */}
+          <div className='border-border/30 mt-6 border-t pt-4 text-center'>
+            <a
+              href='https://beian.miit.gov.cn/'
+              target='_blank'
+              rel='noopener noreferrer'
+              className='text-muted-foreground/40 hover:text-muted-foreground text-xs transition-colors duration-200'
+            >
+              {ICP_NUMBER}
+            </a>
           </div>
         </div>
       </footer>

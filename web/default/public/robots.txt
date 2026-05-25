@@ -1,2 +1,11 @@
 User-agent: *
-Disallow: /
+Allow: /
+Allow: /about
+Allow: /pricing
+Allow: /rankings
+Allow: /privacy-policy
+Allow: /user-agreement
+Disallow: /console/
+Disallow: /(auth)/
+
+Sitemap: /sitemap.xml

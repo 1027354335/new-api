@@ -57,6 +57,22 @@ func isPayPalTopUpEnabled() bool {
 		strings.TrimSpace(setting.PayPalClientSecret) != ""
 }
 
+func isAlipayTopUpEnabled() bool {
+	if !isPaymentComplianceConfirmed() {
+		return false
+	}
+	if !setting.AlipayEnabled {
+		return false
+	}
+	if setting.AlipayBridgeEnabled {
+		return strings.TrimSpace(setting.AlipayBridgeCreateUrl) != "" &&
+			strings.TrimSpace(setting.AlipayBridgeSecret) != ""
+	}
+	return strings.TrimSpace(setting.AlipayAppId) != "" &&
+		strings.TrimSpace(setting.AlipayPrivateKey) != "" &&
+		strings.TrimSpace(setting.AlipayPublicKey) != ""
+}
+
 func isWaffoTopUpEnabled() bool {
 	if !isPaymentComplianceConfirmed() {
 		return false

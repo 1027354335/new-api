@@ -246,6 +246,19 @@ export type BillingSettings = {
   PayPalClientSecret: string
   PayPalMode: string
   PayPalCallbackUrl: string
+  PayPalUsdToEurRate: number
+  LexwareApiKey: string
+  AlipayEnabled: boolean
+  AlipayAppId: string
+  AlipayPrivateKey: string
+  AlipayPublicKey: string
+  AlipaySandbox: boolean
+  AlipayCallbackUrl: string
+  AlipayNotifyUrl: string
+  AlipayUsdToCnyRate: number
+  AlipayBridgeEnabled: boolean
+  AlipayBridgeCreateUrl: string
+  AlipayBridgeSecret: string
   WaffoEnabled: boolean
   WaffoApiKey: string
   WaffoPrivateKey: string

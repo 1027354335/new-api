@@ -81,3 +81,31 @@ export function getPaymentMethodName(
 export function formatTimestamp(timestamp: number): string {
   return formatTimestampToDate(timestamp)
 }
+
+// ============================================================================
+// Invoice Status Utilities
+// ============================================================================
+
+/**
+ * Invoice status badge configuration
+ */
+export const INVOICE_STATUS_CONFIG: Record<
+  string,
+  { label: string; variant: 'success' | 'warning' | 'destructive' | 'neutral' }
+> = {
+  pending: { label: 'Invoice Pending', variant: 'warning' },
+  completed: { label: 'Invoice Issued', variant: 'success' },
+  rejected: { label: 'Invoice Rejected', variant: 'destructive' },
+}
+
+/**
+ * Get invoice status badge configuration
+ */
+export function getInvoiceStatusConfig(status: string) {
+  return (
+    INVOICE_STATUS_CONFIG[status] || {
+      label: status,
+      variant: 'neutral' as const,
+    }
+  )
+}

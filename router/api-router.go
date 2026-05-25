@@ -70,6 +70,9 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.POST("/creem/webhook", controller.CreemWebhook)
 		apiRouter.POST("/waffo/webhook", controller.WaffoWebhook)
 		apiRouter.GET("/paypal/return", controller.PayPalReturn)
+		apiRouter.GET("/alipay/return", controller.AlipayReturn)
+		apiRouter.POST("/alipay/notify", controller.AlipayNotify)
+		apiRouter.POST("/alipay/bridge/settle", controller.AlipayBridgeSettle)
 		//apiRouter.POST("/waffo-pancake/webhook", controller.WaffoPancakeWebhook)
 		// :env separates test vs prod URLs so the operator can register each
 		// in Pancake's matching webhook slot; handler enforces env match.
@@ -117,6 +120,8 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
 				selfRoute.POST("/paypal/pay", middleware.CriticalRateLimit(), controller.RequestPayPalPay)
 				selfRoute.POST("/paypal/amount", controller.RequestPayPalAmount)
+				selfRoute.POST("/alipay/pay", middleware.CriticalRateLimit(), controller.RequestAlipayPay)
+				selfRoute.POST("/alipay/amount", controller.RequestAlipayAmount)
 				selfRoute.POST("/waffo/amount", controller.RequestWaffoAmount)
 				selfRoute.POST("/waffo/pay", middleware.CriticalRateLimit(), controller.RequestWaffoPay)
 				selfRoute.POST("/waffo-pancake/amount", controller.RequestWaffoPancakeAmount)
@@ -196,6 +201,26 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/subscription/epay/notify", controller.SubscriptionEpayNotify)
 		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		apiRouter.POST("/subscription/epay/return", controller.SubscriptionEpayReturn)
+
+		// Invoice routes (user)
+		userInvoiceRoute := apiRouter.Group("/invoice")
+		userInvoiceRoute.Use(middleware.UserAuth())
+		{
+			userInvoiceRoute.POST("/request", controller.ApplyInvoice)
+			userInvoiceRoute.GET("/my", controller.GetMyInvoices)
+			userInvoiceRoute.GET("/download", controller.DownloadInvoiceFile)
+		}
+
+		// Invoice routes (admin)
+		adminInvoiceRoute := apiRouter.Group("/admin/invoice")
+		adminInvoiceRoute.Use(middleware.AdminAuth())
+		{
+			adminInvoiceRoute.GET("/list", controller.AdminListInvoices)
+			adminInvoiceRoute.POST("/upload", controller.AdminUploadInvoiceFile)
+			adminInvoiceRoute.POST("/complete", controller.AdminCompleteInvoice)
+			adminInvoiceRoute.POST("/reject", controller.AdminRejectInvoice)
+		}
+
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{

@@ -61,6 +61,27 @@ export function formatCurrency(amount: number | string): string {
   }).format(numeric)
 }
 
+export function formatPaymentAmount(
+  amount: number | string,
+  currency?: string
+): string {
+  const numeric =
+    typeof amount === 'number' ? amount : Number.parseFloat(String(amount))
+  if (!Number.isFinite(numeric)) return '-'
+  if (!currency) return formatCurrency(numeric)
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numeric)
+  } catch (_error) {
+    return `${currency} ${formatCurrency(numeric)}`
+  }
+}
+
 /**
  * Get discount label for display (e.g., "20% OFF")
  */

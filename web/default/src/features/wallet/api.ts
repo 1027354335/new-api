@@ -29,6 +29,7 @@ import type {
   PaymentResponse,
   StripePaymentResponse,
   PayPalPaymentResponse,
+  AlipayPaymentResponse,
   AffiliateCodeResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
@@ -39,6 +40,10 @@ import type {
   WaffoPaymentResponse,
   WaffoPancakePaymentRequest,
   WaffoPancakePaymentResponse,
+  ApplyInvoiceRequest,
+  InvoiceListResponse,
+  CompleteInvoiceRequest,
+  RejectInvoiceRequest,
 } from './types'
 
 // ============================================================================
@@ -107,6 +112,18 @@ export async function calculatePayPalAmount(
 }
 
 /**
+ * Calculate payment amount for Alipay payment
+ */
+export async function calculateAlipayAmount(
+  request: AmountRequest
+): Promise<AmountResponse> {
+  const res = await api.post('/api/user/alipay/amount', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
  * Request regular payment
  */
 export async function requestPayment(
@@ -140,6 +157,18 @@ export async function requestPayPalPayment(
   request: PaymentRequest
 ): Promise<PayPalPaymentResponse> {
   const res = await api.post('/api/user/paypal/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Request Alipay payment
+ */
+export async function requestAlipayPayment(
+  request: PaymentRequest
+): Promise<AlipayPaymentResponse> {
+  const res = await api.post('/api/user/alipay/pay', request, {
     skipBusinessError: true,
   } as Record<string, unknown>)
   return res.data
@@ -256,5 +285,129 @@ export async function completeOrder(
   request: CompleteOrderRequest
 ): Promise<ApiResponse> {
   const res = await api.post('/api/user/topup/complete', request)
+  return res.data
+}
+
+// ============================================================================
+// Invoice API
+// ============================================================================
+
+/**
+ * Apply for an invoice
+ */
+export async function applyInvoice(
+  data: ApplyInvoiceRequest
+): Promise<ApiResponse<null>> {
+  const res = await api.post('/api/invoice/request', data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Get current user's invoices
+ */
+export async function getMyInvoices(
+  page: number,
+  pageSize: number
+): Promise<ApiResponse<InvoiceListResponse>> {
+  const params = new URLSearchParams({
+    p: String(page),
+    page_size: String(pageSize),
+  })
+  const res = await api.get(`/api/invoice/my?${params.toString()}`, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Get all invoices (admin only)
+ */
+export async function getAdminInvoices(
+  page: number,
+  pageSize: number,
+  status?: string,
+  paymentMethod?: string,
+  keyword?: string
+): Promise<ApiResponse<InvoiceListResponse>> {
+  const params = new URLSearchParams({
+    p: String(page),
+    page_size: String(pageSize),
+  })
+  if (status) params.append('status', status)
+  if (paymentMethod) params.append('payment_method', paymentMethod)
+  if (keyword) params.append('keyword', keyword)
+  const res = await api.get(`/api/admin/invoice/list?${params.toString()}`, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Upload invoice file (admin only)
+ */
+export async function uploadInvoiceFile(
+  invoiceId: number,
+  file: File
+): Promise<ApiResponse<{ file_path?: string; url?: string }>> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('invoice_id', String(invoiceId))
+  const res = await api.post('/api/admin/invoice/upload', formData, {
+    skipBusinessError: true,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Download an invoice file.
+ */
+export async function downloadInvoiceFile(invoiceId: number): Promise<void> {
+  const res = await api.get(`/api/invoice/download?id=${invoiceId}`, {
+    responseType: 'blob',
+    disableDuplicate: true,
+  } as Record<string, unknown>)
+
+  const contentDisposition = res.headers['content-disposition']
+  const filenameMatch =
+    typeof contentDisposition === 'string'
+      ? contentDisposition.match(/filename="?([^";]+)"?/)
+      : null
+  const filename = filenameMatch?.[1] || `invoice_${invoiceId}.pdf`
+  const blobUrl = window.URL.createObjectURL(res.data)
+  const link = document.createElement('a')
+  link.href = blobUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(blobUrl)
+}
+
+/**
+ * Complete an invoice (admin only)
+ */
+export async function completeInvoice(
+  data: CompleteInvoiceRequest
+): Promise<ApiResponse<null>> {
+  const res = await api.post('/api/admin/invoice/complete', data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Reject an invoice (admin only)
+ */
+export async function rejectInvoice(
+  data: RejectInvoiceRequest
+): Promise<ApiResponse<null>> {
+  const res = await api.post('/api/admin/invoice/reject', data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
   return res.data
 }

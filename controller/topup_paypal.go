@@ -28,6 +28,15 @@ type PayPalPayRequest struct {
 	PaymentMethod string `json:"payment_method"`
 }
 
+const paypalCurrencyCode = "EUR"
+
+type paymentAmountQuote struct {
+	Amount          string  `json:"amount"`
+	Currency        string  `json:"currency"`
+	ExchangeRate    float64 `json:"exchange_rate"`
+	CreditAmountUSD float64 `json:"credit_amount_usd"`
+}
+
 type paypalAccessTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
@@ -122,7 +131,7 @@ func genPayPalOrder(c *gin.Context, tradeNo string, payMoney float64) (string, e
 			{
 				"reference_id": tradeNo,
 				"amount": map[string]string{
-					"currency_code": "USD",
+					"currency_code": paypalCurrencyCode,
 					"value":         value,
 				},
 			},
@@ -244,7 +253,7 @@ func capturePayPalOrder(orderId string, expectedTradeNo string, expectedAmount f
 		}
 		for _, capture := range unit.Payments.Captures {
 			if capture.Status == "COMPLETED" &&
-				capture.Amount.CurrencyCode == "USD" &&
+				capture.Amount.CurrencyCode == paypalCurrencyCode &&
 				capture.Amount.Value == expectedValue {
 				return nil
 			}
@@ -254,7 +263,7 @@ func capturePayPalOrder(orderId string, expectedTradeNo string, expectedAmount f
 	return fmt.Errorf("paypal capture does not match local order")
 }
 
-func getPayPalPayMoney(amount int64, group string) float64 {
+func getPayPalQuote(amount int64, group string) (float64, float64, float64) {
 	dAmount := decimal.NewFromInt(amount)
 	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
 		dAmount = dAmount.Div(decimal.NewFromFloat(common.QuotaPerUnit))
@@ -270,7 +279,17 @@ func getPayPalPayMoney(amount int64, group string) float64 {
 		discount = ds
 	}
 
-	return dAmount.Mul(decimal.NewFromFloat(topupGroupRatio)).Mul(decimal.NewFromFloat(discount)).InexactFloat64()
+	exchangeRate := setting.PayPalUsdToEurRate
+	if exchangeRate <= 0 {
+		exchangeRate = 0.92
+	}
+	payMoney := dAmount.
+		Mul(decimal.NewFromFloat(exchangeRate)).
+		Mul(decimal.NewFromFloat(topupGroupRatio)).
+		Mul(decimal.NewFromFloat(discount)).
+		InexactFloat64()
+
+	return dAmount.InexactFloat64(), payMoney, exchangeRate
 }
 
 func getPayPalMinTopup() int64 {
@@ -297,12 +316,20 @@ func RequestPayPalAmount(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "failed to get user group"})
 		return
 	}
-	payMoney := getPayPalPayMoney(req.Amount, group)
+	creditAmountUSD, payMoney, exchangeRate := getPayPalQuote(req.Amount, group)
 	if payMoney <= 0.01 {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "invalid payment amount"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "success", "data": strconv.FormatFloat(payMoney, 'f', 2, 64)})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "success",
+		"data": paymentAmountQuote{
+			Amount:          strconv.FormatFloat(payMoney, 'f', 2, 64),
+			Currency:        paypalCurrencyCode,
+			ExchangeRate:    exchangeRate,
+			CreditAmountUSD: creditAmountUSD,
+		},
+	})
 }
 
 func RequestPayPalPay(c *gin.Context) {
@@ -327,7 +354,7 @@ func RequestPayPalPay(c *gin.Context) {
 	id := c.GetInt("id")
 	user, _ := model.GetUserById(id, false)
 	group := user.Group
-	payMoney := getPayPalPayMoney(req.Amount, group)
+	creditAmountUSD, payMoney, exchangeRate := getPayPalQuote(req.Amount, group)
 	if payMoney <= 0.01 {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "invalid payment amount"})
 		return
@@ -344,6 +371,10 @@ func RequestPayPalPay(c *gin.Context) {
 		UserId:          id,
 		Amount:          amount,
 		Money:           payMoney,
+		CreditAmountUsd: creditAmountUSD,
+		PaidAmount:      payMoney,
+		PaidCurrency:    paypalCurrencyCode,
+		ExchangeRate:    exchangeRate,
 		TradeNo:         tradeNo,
 		PaymentMethod:   model.PaymentMethodPayPal,
 		PaymentProvider: model.PaymentProviderPayPal,
@@ -394,7 +425,7 @@ func PayPalReturn(c *gin.Context) {
 		return
 	}
 
-	if err := capturePayPalOrder(orderId, tradeNo, topUp.Money); err != nil {
+	if err := capturePayPalOrder(orderId, tradeNo, topUp.GetPaidAmount()); err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("PayPal capture failed trade_no=%s paypal_order_id=%s client_ip=%s error=%q", tradeNo, orderId, c.ClientIP(), err.Error()))
 		c.Redirect(http.StatusFound, getPayPalFrontendReturnPath("/console/topup?pay=fail"))
 		return

@@ -16,6 +16,10 @@ type TopUp struct {
 	UserId          int     `json:"user_id" gorm:"index"`
 	Amount          int64   `json:"amount"`
 	Money           float64 `json:"money"`
+	CreditAmountUsd float64 `json:"credit_amount_usd"`
+	PaidAmount      float64 `json:"paid_amount"`
+	PaidCurrency    string  `json:"paid_currency" gorm:"type:varchar(8);default:''"`
+	ExchangeRate    float64 `json:"exchange_rate"`
 	TradeNo         string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentMethod   string  `json:"payment_method" gorm:"type:varchar(50)"`
 	PaymentProvider string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
@@ -30,6 +34,7 @@ const (
 	PaymentMethodPayPal       = "paypal"
 	PaymentMethodWaffo        = "waffo"
 	PaymentMethodWaffoPancake = "waffo_pancake"
+	PaymentMethodAlipay       = "alipay"
 )
 
 const (
@@ -39,6 +44,7 @@ const (
 	PaymentProviderPayPal       = "paypal"
 	PaymentProviderWaffo        = "waffo"
 	PaymentProviderWaffoPancake = "waffo_pancake"
+	PaymentProviderAlipay       = "alipay"
 )
 
 var (
@@ -57,6 +63,39 @@ func (topUp *TopUp) Update() error {
 	var err error
 	err = DB.Save(topUp).Error
 	return err
+}
+
+func (topUp *TopUp) GetCreditAmountUSD() float64 {
+	if topUp == nil {
+		return 0
+	}
+	if topUp.CreditAmountUsd > 0 {
+		return topUp.CreditAmountUsd
+	}
+	if topUp.Amount > 0 {
+		return float64(topUp.Amount)
+	}
+	return topUp.Money
+}
+
+func (topUp *TopUp) GetPaidAmount() float64 {
+	if topUp == nil {
+		return 0
+	}
+	if topUp.PaidAmount > 0 {
+		return topUp.PaidAmount
+	}
+	return topUp.Money
+}
+
+func (topUp *TopUp) GetPaidCurrency(fallback string) string {
+	if topUp == nil {
+		return fallback
+	}
+	if topUp.PaidCurrency != "" {
+		return topUp.PaidCurrency
+	}
+	return fallback
 }
 
 func GetTopUpById(id int) *TopUp {
@@ -495,7 +534,7 @@ func RechargePayPal(referenceId string, callerIp string) (err error) {
 			return ErrTopUpStatusInvalid
 		}
 
-		dAmount := decimal.NewFromInt(topUp.Amount)
+		dAmount := decimal.NewFromFloat(topUp.GetCreditAmountUSD())
 		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
 		quotaToAdd = int(dAmount.Mul(dQuotaPerUnit).IntPart())
 		if quotaToAdd <= 0 {
@@ -518,6 +557,65 @@ func RechargePayPal(referenceId string, callerIp string) (err error) {
 
 	if quotaToAdd > 0 {
 		RecordTopupLog(topUp.UserId, fmt.Sprintf("PayPal topup successful, quota: %v, paid: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodPayPal)
+	}
+
+	return nil
+}
+
+func RechargeAlipay(referenceId string, callerIp string) (err error) {
+	if referenceId == "" {
+		return errors.New("reference id is empty")
+	}
+
+	var quotaToAdd int
+	topUp := &TopUp{}
+
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", referenceId).First(topUp).Error
+		if err != nil {
+			return ErrTopUpNotFound
+		}
+
+		if topUp.PaymentProvider != PaymentProviderAlipay {
+			return ErrPaymentMethodMismatch
+		}
+
+		if topUp.Status == common.TopUpStatusSuccess {
+			return nil
+		}
+
+		if topUp.Status != common.TopUpStatusPending {
+			return ErrTopUpStatusInvalid
+		}
+
+		dAmount := decimal.NewFromFloat(topUp.GetCreditAmountUSD())
+		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
+		quotaToAdd = int(dAmount.Mul(dQuotaPerUnit).IntPart())
+		if quotaToAdd <= 0 {
+			return errors.New("invalid quota amount")
+		}
+
+		topUp.CompleteTime = common.GetTimestamp()
+		topUp.Status = common.TopUpStatusSuccess
+		if err := tx.Save(topUp).Error; err != nil {
+			return err
+		}
+
+		return tx.Model(&User{}).Where("id = ?", topUp.UserId).Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error
+	})
+
+	if err != nil {
+		common.SysError("alipay topup failed: " + err.Error())
+		return errors.New("topup failed")
+	}
+
+	if quotaToAdd > 0 {
+		RecordTopupLog(topUp.UserId, fmt.Sprintf("Alipay topup successful, quota: %v, paid: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodAlipay)
 	}
 
 	return nil

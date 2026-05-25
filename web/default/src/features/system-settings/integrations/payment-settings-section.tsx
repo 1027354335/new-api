@@ -142,6 +142,31 @@ const paymentSchema = z.object({
     if (!trimmed) return true
     return /^https?:\/\//.test(trimmed)
   }, 'Provide a valid URL starting with http:// or https://'),
+  PayPalUsdToEurRate: z.coerce.number().positive(),
+  LexwareApiKey: z.string(),
+  AlipayEnabled: z.boolean(),
+  AlipayAppId: z.string(),
+  AlipayPrivateKey: z.string(),
+  AlipayPublicKey: z.string(),
+  AlipaySandbox: z.boolean(),
+  AlipayCallbackUrl: z.string().refine((value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return true
+    return /^https?:\/\//.test(trimmed)
+  }, 'Provide a valid URL starting with http:// or https://'),
+  AlipayNotifyUrl: z.string().refine((value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return true
+    return /^https?:\/\//.test(trimmed)
+  }, 'Provide a valid URL starting with http:// or https://'),
+  AlipayUsdToCnyRate: z.coerce.number().positive(),
+  AlipayBridgeEnabled: z.boolean(),
+  AlipayBridgeCreateUrl: z.string().refine((value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return true
+    return /^https?:\/\//.test(trimmed)
+  }, 'Provide a valid URL starting with http:// or https://'),
+  AlipayBridgeSecret: z.string(),
 })
 
 type PaymentFormValues = z.infer<typeof paymentSchema>
@@ -537,6 +562,8 @@ export function PaymentSettingsSection({
       PayPalClientSecret: values.PayPalClientSecret.trim(),
       PayPalMode: values.PayPalMode || 'sandbox',
       PayPalCallbackUrl: removeTrailingSlash(values.PayPalCallbackUrl),
+      PayPalUsdToEurRate: values.PayPalUsdToEurRate as number,
+      LexwareApiKey: values.LexwareApiKey.trim(),
     }
 
     const initial = {
@@ -547,9 +574,11 @@ export function PaymentSettingsSection({
       PayPalCallbackUrl: removeTrailingSlash(
         initialRef.current.PayPalCallbackUrl
       ),
+      PayPalUsdToEurRate: initialRef.current.PayPalUsdToEurRate,
+      LexwareApiKey: initialRef.current.LexwareApiKey.trim(),
     }
 
-    const updates: Array<{ key: string; value: string | boolean }> = []
+    const updates: Array<{ key: string; value: string | number | boolean }> = []
 
     if (sanitized.PayPalEnabled !== initial.PayPalEnabled) {
       updates.push({ key: 'PayPalEnabled', value: sanitized.PayPalEnabled })
@@ -577,6 +606,139 @@ export function PaymentSettingsSection({
       updates.push({
         key: 'PayPalCallbackUrl',
         value: sanitized.PayPalCallbackUrl,
+      })
+    }
+
+    if (sanitized.PayPalUsdToEurRate !== initial.PayPalUsdToEurRate) {
+      updates.push({
+        key: 'PayPalUsdToEurRate',
+        value: sanitized.PayPalUsdToEurRate,
+      })
+    }
+
+    if (sanitized.LexwareApiKey !== initial.LexwareApiKey) {
+      updates.push({ key: 'LexwareApiKey', value: sanitized.LexwareApiKey })
+    }
+
+    if (updates.length === 0) {
+      return
+    }
+
+    for (const update of updates) {
+      await updateOption.mutateAsync(update)
+    }
+  }
+
+  const saveAlipaySettings = async () => {
+    const values = form.getValues()
+    const sanitized = {
+      AlipayEnabled: values.AlipayEnabled as boolean,
+      AlipayAppId: values.AlipayAppId.trim(),
+      AlipayPrivateKey: values.AlipayPrivateKey.trim(),
+      AlipayPublicKey: values.AlipayPublicKey.trim(),
+      AlipaySandbox: values.AlipaySandbox as boolean,
+      AlipayCallbackUrl: removeTrailingSlash(values.AlipayCallbackUrl),
+      AlipayNotifyUrl: removeTrailingSlash(values.AlipayNotifyUrl),
+      AlipayUsdToCnyRate: values.AlipayUsdToCnyRate as number,
+      AlipayBridgeEnabled: values.AlipayBridgeEnabled as boolean,
+      AlipayBridgeCreateUrl: removeTrailingSlash(values.AlipayBridgeCreateUrl),
+      AlipayBridgeSecret: values.AlipayBridgeSecret.trim(),
+    }
+
+    const initial = {
+      AlipayEnabled: initialRef.current.AlipayEnabled,
+      AlipayAppId: initialRef.current.AlipayAppId.trim(),
+      AlipayPrivateKey: initialRef.current.AlipayPrivateKey.trim(),
+      AlipayPublicKey: initialRef.current.AlipayPublicKey.trim(),
+      AlipaySandbox: initialRef.current.AlipaySandbox,
+      AlipayCallbackUrl: removeTrailingSlash(
+        initialRef.current.AlipayCallbackUrl
+      ),
+      AlipayNotifyUrl: removeTrailingSlash(initialRef.current.AlipayNotifyUrl),
+      AlipayUsdToCnyRate: initialRef.current.AlipayUsdToCnyRate,
+      AlipayBridgeEnabled: initialRef.current.AlipayBridgeEnabled,
+      AlipayBridgeCreateUrl: removeTrailingSlash(
+        initialRef.current.AlipayBridgeCreateUrl
+      ),
+      AlipayBridgeSecret: initialRef.current.AlipayBridgeSecret.trim(),
+    }
+
+    const updates: Array<{ key: string; value: string | number | boolean }> = []
+
+    if (sanitized.AlipayEnabled !== initial.AlipayEnabled) {
+      updates.push({ key: 'AlipayEnabled', value: sanitized.AlipayEnabled })
+    }
+
+    if (sanitized.AlipayAppId !== initial.AlipayAppId) {
+      updates.push({ key: 'AlipayAppId', value: sanitized.AlipayAppId })
+    }
+
+    if (
+      sanitized.AlipayPrivateKey &&
+      sanitized.AlipayPrivateKey !== initial.AlipayPrivateKey
+    ) {
+      updates.push({
+        key: 'AlipayPrivateKey',
+        value: sanitized.AlipayPrivateKey,
+      })
+    }
+
+    if (
+      sanitized.AlipayPublicKey &&
+      sanitized.AlipayPublicKey !== initial.AlipayPublicKey
+    ) {
+      updates.push({
+        key: 'AlipayPublicKey',
+        value: sanitized.AlipayPublicKey,
+      })
+    }
+
+    if (sanitized.AlipaySandbox !== initial.AlipaySandbox) {
+      updates.push({ key: 'AlipaySandbox', value: sanitized.AlipaySandbox })
+    }
+
+    if (sanitized.AlipayCallbackUrl !== initial.AlipayCallbackUrl) {
+      updates.push({
+        key: 'AlipayCallbackUrl',
+        value: sanitized.AlipayCallbackUrl,
+      })
+    }
+
+    if (sanitized.AlipayNotifyUrl !== initial.AlipayNotifyUrl) {
+      updates.push({
+        key: 'AlipayNotifyUrl',
+        value: sanitized.AlipayNotifyUrl,
+      })
+    }
+
+    if (sanitized.AlipayUsdToCnyRate !== initial.AlipayUsdToCnyRate) {
+      updates.push({
+        key: 'AlipayUsdToCnyRate',
+        value: sanitized.AlipayUsdToCnyRate,
+      })
+    }
+
+    if (sanitized.AlipayBridgeEnabled !== initial.AlipayBridgeEnabled) {
+      updates.push({
+        key: 'AlipayBridgeEnabled',
+        value: sanitized.AlipayBridgeEnabled,
+      })
+    }
+
+    if (sanitized.AlipayBridgeCreateUrl !== initial.AlipayBridgeCreateUrl) {
+      updates.push({
+        key: 'AlipayBridgeCreateUrl',
+        value: sanitized.AlipayBridgeCreateUrl,
+      })
+    }
+
+    if (
+      sanitized.AlipayBridgeSecret &&
+      sanitized.AlipayBridgeSecret !== initial.AlipayBridgeSecret
+    ) {
+      updates.push({
+        key: 'AlipayBridgeSecret',
+        value: sanitized.AlipayBridgeSecret,
       })
     }
 
@@ -611,6 +773,19 @@ export function PaymentSettingsSection({
       PayPalClientSecret: values.PayPalClientSecret.trim(),
       PayPalMode: values.PayPalMode || 'sandbox',
       PayPalCallbackUrl: removeTrailingSlash(values.PayPalCallbackUrl),
+      PayPalUsdToEurRate: values.PayPalUsdToEurRate,
+      LexwareApiKey: values.LexwareApiKey.trim(),
+      AlipayEnabled: values.AlipayEnabled,
+      AlipayAppId: values.AlipayAppId.trim(),
+      AlipayPrivateKey: values.AlipayPrivateKey.trim(),
+      AlipayPublicKey: values.AlipayPublicKey.trim(),
+      AlipaySandbox: values.AlipaySandbox,
+      AlipayCallbackUrl: removeTrailingSlash(values.AlipayCallbackUrl),
+      AlipayNotifyUrl: removeTrailingSlash(values.AlipayNotifyUrl),
+      AlipayUsdToCnyRate: values.AlipayUsdToCnyRate,
+      AlipayBridgeEnabled: values.AlipayBridgeEnabled,
+      AlipayBridgeCreateUrl: removeTrailingSlash(values.AlipayBridgeCreateUrl),
+      AlipayBridgeSecret: values.AlipayBridgeSecret.trim(),
     }
 
     const initial = {
@@ -639,6 +814,23 @@ export function PaymentSettingsSection({
       PayPalCallbackUrl: removeTrailingSlash(
         initialRef.current.PayPalCallbackUrl
       ),
+      PayPalUsdToEurRate: initialRef.current.PayPalUsdToEurRate,
+      LexwareApiKey: initialRef.current.LexwareApiKey.trim(),
+      AlipayEnabled: initialRef.current.AlipayEnabled,
+      AlipayAppId: initialRef.current.AlipayAppId.trim(),
+      AlipayPrivateKey: initialRef.current.AlipayPrivateKey.trim(),
+      AlipayPublicKey: initialRef.current.AlipayPublicKey.trim(),
+      AlipaySandbox: initialRef.current.AlipaySandbox,
+      AlipayCallbackUrl: removeTrailingSlash(
+        initialRef.current.AlipayCallbackUrl
+      ),
+      AlipayNotifyUrl: removeTrailingSlash(initialRef.current.AlipayNotifyUrl),
+      AlipayUsdToCnyRate: initialRef.current.AlipayUsdToCnyRate,
+      AlipayBridgeEnabled: initialRef.current.AlipayBridgeEnabled,
+      AlipayBridgeCreateUrl: removeTrailingSlash(
+        initialRef.current.AlipayBridgeCreateUrl
+      ),
+      AlipayBridgeSecret: initialRef.current.AlipayBridgeSecret.trim(),
     }
 
     const updates: Array<{ key: string; value: string | number | boolean }> = []
@@ -762,6 +954,97 @@ export function PaymentSettingsSection({
       updates.push({
         key: 'PayPalCallbackUrl',
         value: sanitized.PayPalCallbackUrl,
+      })
+    }
+
+    if (sanitized.PayPalUsdToEurRate !== initial.PayPalUsdToEurRate) {
+      updates.push({
+        key: 'PayPalUsdToEurRate',
+        value: sanitized.PayPalUsdToEurRate,
+      })
+    }
+
+    if (sanitized.LexwareApiKey !== initial.LexwareApiKey) {
+      updates.push({
+        key: 'LexwareApiKey',
+        value: sanitized.LexwareApiKey,
+      })
+    }
+
+    if (sanitized.AlipayEnabled !== initial.AlipayEnabled) {
+      updates.push({ key: 'AlipayEnabled', value: sanitized.AlipayEnabled })
+    }
+
+    if (sanitized.AlipayAppId !== initial.AlipayAppId) {
+      updates.push({ key: 'AlipayAppId', value: sanitized.AlipayAppId })
+    }
+
+    if (
+      sanitized.AlipayPrivateKey &&
+      sanitized.AlipayPrivateKey !== initial.AlipayPrivateKey
+    ) {
+      updates.push({
+        key: 'AlipayPrivateKey',
+        value: sanitized.AlipayPrivateKey,
+      })
+    }
+
+    if (
+      sanitized.AlipayPublicKey &&
+      sanitized.AlipayPublicKey !== initial.AlipayPublicKey
+    ) {
+      updates.push({
+        key: 'AlipayPublicKey',
+        value: sanitized.AlipayPublicKey,
+      })
+    }
+
+    if (sanitized.AlipaySandbox !== initial.AlipaySandbox) {
+      updates.push({ key: 'AlipaySandbox', value: sanitized.AlipaySandbox })
+    }
+
+    if (sanitized.AlipayCallbackUrl !== initial.AlipayCallbackUrl) {
+      updates.push({
+        key: 'AlipayCallbackUrl',
+        value: sanitized.AlipayCallbackUrl,
+      })
+    }
+
+    if (sanitized.AlipayNotifyUrl !== initial.AlipayNotifyUrl) {
+      updates.push({
+        key: 'AlipayNotifyUrl',
+        value: sanitized.AlipayNotifyUrl,
+      })
+    }
+
+    if (sanitized.AlipayUsdToCnyRate !== initial.AlipayUsdToCnyRate) {
+      updates.push({
+        key: 'AlipayUsdToCnyRate',
+        value: sanitized.AlipayUsdToCnyRate,
+      })
+    }
+
+    if (sanitized.AlipayBridgeEnabled !== initial.AlipayBridgeEnabled) {
+      updates.push({
+        key: 'AlipayBridgeEnabled',
+        value: sanitized.AlipayBridgeEnabled,
+      })
+    }
+
+    if (sanitized.AlipayBridgeCreateUrl !== initial.AlipayBridgeCreateUrl) {
+      updates.push({
+        key: 'AlipayBridgeCreateUrl',
+        value: sanitized.AlipayBridgeCreateUrl,
+      })
+    }
+
+    if (
+      sanitized.AlipayBridgeSecret &&
+      sanitized.AlipayBridgeSecret !== initial.AlipayBridgeSecret
+    ) {
+      updates.push({
+        key: 'AlipayBridgeSecret',
+        value: sanitized.AlipayBridgeSecret,
       })
     }
 
@@ -1704,6 +1987,58 @@ export function PaymentSettingsSection({
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name='PayPalUsdToEurRate'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('USD to EUR rate')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min='0'
+                        step='0.000001'
+                        placeholder='0.92'
+                        {...field}
+                        value={Number(field.value ?? 0)}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Used to convert USD top-up amount to EUR for PayPal.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='LexwareApiKey'
+                render={({ field }) => (
+                  <FormItem className='md:col-span-3'>
+                    <FormLabel>{t('Lexware API Key')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='password'
+                        placeholder={t('Enter Lexware API Key')}
+                        autoComplete='new-password'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Used for automatic Lexware Office invoicing when PayPal purchases are completed.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <Button
@@ -1718,6 +2053,299 @@ export function PaymentSettingsSection({
               {updateOption.isPending
                 ? t('Saving...')
                 : t('Save PayPal settings')}
+            </Button>
+          </div>
+
+          <Separator />
+
+          <div className='space-y-4'>
+            <div>
+              <h3 className='text-lg font-medium'>{t('Alipay Gateway')}</h3>
+              <p className='text-muted-foreground text-sm'>
+                {t('Configuration for Alipay payment integration')}
+              </p>
+            </div>
+
+            <FormField
+              control={form.control}
+              name='AlipayEnabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                  <div className='space-y-0.5'>
+                    <FormLabel className='text-base'>
+                      {t('Enable Alipay payments')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('Show Alipay as a wallet recharge option')}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='AlipayBridgeEnabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                  <div className='space-y-0.5'>
+                    <FormLabel className='text-base'>
+                      {t('Use Alipay bridge service')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t(
+                        'Create Alipay orders through a domestic bridge server and settle them back to this server with signed callbacks.'
+                      )}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <div className='grid gap-6 md:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='AlipayBridgeCreateUrl'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alipay bridge create URL')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='https://pay-cn.example.com/api/alipay/create'
+                        autoComplete='off'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Domestic bridge endpoint used by this server to create Alipay payment orders.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='AlipayBridgeSecret'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alipay bridge shared secret')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='password'
+                        placeholder={t('Enter new shared secret to update')}
+                        autoComplete='off'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Shared HMAC secret used between this server and the domestic bridge. Leave blank unless rotating it.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className='grid gap-6 md:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='AlipayCallbackUrl'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alipay return URL')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='<ServerAddress>/api/alipay/return'
+                        autoComplete='off'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Leave blank to use the system callback address automatically'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='AlipayNotifyUrl'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alipay notify URL')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='<ServerAddress>/api/alipay/notify'
+                        autoComplete='off'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Leave blank to use the system notify address automatically'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className='grid gap-6 md:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='AlipayAppId'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alipay App ID')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder={t('Enter Alipay App ID')}
+                        autoComplete='off'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='AlipaySandbox'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel className='text-base'>
+                        {t('Sandbox Mode')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t('Use Alipay sandbox environment for testing')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='AlipayUsdToCnyRate'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('USD to CNY rate')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min='0'
+                        step='0.000001'
+                        placeholder='7.2'
+                        {...field}
+                        value={Number(field.value ?? 0)}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Used to convert USD top-up amount to CNY for Alipay.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className='grid gap-6 md:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='AlipayPrivateKey'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alipay Private Key')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='password'
+                        placeholder={t('Enter new private key to update')}
+                        autoComplete='off'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Leave blank unless rotating the key')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='AlipayPublicKey'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alipay Public Key')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='password'
+                        placeholder={t('Enter new public key to update')}
+                        autoComplete='off'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Leave blank unless rotating the key')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Button
+              type='button'
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                saveAlipaySettings()
+              }}
+              disabled={updateOption.isPending}
+            >
+              {updateOption.isPending
+                ? t('Saving...')
+                : t('Save Alipay settings')}
             </Button>
           </div>
 

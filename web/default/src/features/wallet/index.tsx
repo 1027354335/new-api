@@ -21,7 +21,6 @@ import { useTranslation } from 'react-i18next'
 import { getSelf } from '@/lib/api'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { SectionPageLayout } from '@/components/layout'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { SectionPageLayout } from '@/components/layout'
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
@@ -93,12 +93,22 @@ export function Wallet(props: WalletProps) {
 
   // Calculate effective exchange rate - when display type is USD, use rate of 1
   const effectiveUsdExchangeRate = useMemo(() => {
+    if (currency?.quotaDisplayType === 'CUSTOM') {
+      return currency.customCurrencyExchangeRate || 1
+    }
     return currency?.quotaDisplayType === 'USD'
       ? 1
       : currency?.usdExchangeRate || 1
-  }, [currency?.quotaDisplayType, currency?.usdExchangeRate])
+  }, [
+    currency?.customCurrencyExchangeRate,
+    currency?.quotaDisplayType,
+    currency?.usdExchangeRate,
+  ])
   const {
     amount: paymentAmount,
+    paymentCurrency,
+    exchangeRate,
+    creditAmountUsd,
     calculating,
     processing,
     calculatePaymentAmount,
@@ -364,6 +374,9 @@ export function Wallet(props: WalletProps) {
         processing={processing || pancakeProcessing}
         discountRate={getDiscountRate()}
         usdExchangeRate={effectiveUsdExchangeRate}
+        paymentCurrency={paymentCurrency}
+        exchangeRate={exchangeRate}
+        creditAmountUsd={creditAmountUsd}
       />
 
       <TransferDialog

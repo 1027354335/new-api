@@ -1,0 +1,32 @@
+version: '3.4'
+
+services:
+  alipay-bridge:
+    image: alipay-bridge:latest
+    container_name: alipay-bridge
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - ALIPAY_BRIDGE_LISTEN_ADDR=:3001
+      - ALIPAY_APP_ID=
+      - ALIPAY_PRIVATE_KEY=
+      - ALIPAY_PUBLIC_KEY=
+      - ALIPAY_SANDBOX=false
+      - ALIPAY_BRIDGE_PUBLIC_BASE_URL=https://pay-cn.example.com
+      - ALIPAY_BRIDGE_OVERSEAS_SETTLE_URL=https://main.example.com/api/alipay/bridge/settle
+      - ALIPAY_BRIDGE_SECRET=
+      - ALIPAY_BRIDGE_RETURN_SUCCESS_URL=https://main.example.com/console/topup?pay=success
+      - ALIPAY_BRIDGE_RETURN_FAIL_URL=https://main.example.com/console/topup?pay=fail
+      - TZ=Asia/Shanghai
+    networks:
+      - alipay-bridge-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3001/health | grep -o 'ok' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  alipay-bridge-network:
+    driver: bridge

@@ -95,7 +95,7 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
-	enableWaffoPancake := isWaffoPancakeTopUpEnabled()
+	enableWaffoPancake = isWaffoPancakeTopUpEnabled()
 	if enableWaffoPancake {
 		hasWaffoPancake := false
 		for _, method := range payMethods {
@@ -134,11 +134,31 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	if isAlipayTopUpEnabled() {
+		hasAlipay := false
+		for _, method := range payMethods {
+			if method["type"] == model.PaymentMethodAlipay {
+				hasAlipay = true
+				break
+			}
+		}
+
+		if !hasAlipay {
+			payMethods = append(payMethods, map[string]string{
+				"name":      "Alipay",
+				"type":      model.PaymentMethodAlipay,
+				"color":     "#1677FF",
+				"min_topup": strconv.FormatInt(getAlipayMinTopup(), 10),
+			})
+		}
+	}
+
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
 		"enable_creem_topup":               isCreemTopUpEnabled(),
 		"enable_paypal_topup":              isPayPalTopUpEnabled(),
+		"enable_alipay_topup":              isAlipayTopUpEnabled(),
 		"enable_waffo_topup":               enableWaffo,
 		"enable_waffo_pancake_topup":       enableWaffoPancake,
 		"enable_redemption":                complianceConfirmed,
@@ -155,6 +175,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"min_topup":               operation_setting.MinTopUp,
 		"stripe_min_topup":        setting.StripeMinTopUp,
 		"paypal_min_topup":        int(getPayPalMinTopup()),
+		"alipay_min_topup":        int(getAlipayMinTopup()),
 		"waffo_min_topup":         setting.WaffoMinTopUp,
 		"waffo_pancake_min_topup": setting.WaffoPancakeMinTopUp,
 		"amount_options":          operation_setting.GetPaymentSetting().AmountOptions,

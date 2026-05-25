@@ -34,12 +34,16 @@ export interface ApiResponse<T = unknown> {
  */
 export type TopupInfoResponse = ApiResponse<TopupInfo>
 export type RedemptionResponse = ApiResponse<number>
-export type AmountResponse = ApiResponse<string>
+export type AmountResponse = ApiResponse<string | PaymentAmountQuote>
 export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
   url?: string
 }
 export type StripePaymentResponse = ApiResponse<{ pay_link: string }>
 export type PayPalPaymentResponse = ApiResponse<{
+  approve_link: string
+  order_id: string
+}>
+export type AlipayPaymentResponse = ApiResponse<{
   approve_link: string
   order_id: string
 }>
@@ -63,6 +67,13 @@ export type WaffoPancakePaymentResponse = ApiResponse<
     }
   | string
 >
+
+export interface PaymentAmountQuote {
+  amount: string | number
+  currency: string
+  exchange_rate?: number
+  credit_amount_usd?: number
+}
 
 /**
  * Creem product configuration
@@ -130,6 +141,8 @@ export interface TopupInfo {
   enable_stripe_topup: boolean
   /** Whether PayPal topup is enabled */
   enable_paypal_topup?: boolean
+  /** Whether Alipay topup is enabled */
+  enable_alipay_topup?: boolean
   /** Available payment methods */
   pay_methods: PaymentMethod[]
   /** Minimum topup amount for online topup */
@@ -138,6 +151,8 @@ export interface TopupInfo {
   stripe_min_topup: number
   /** Minimum topup amount for PayPal */
   paypal_min_topup?: number
+  /** Minimum topup amount for Alipay */
+  alipay_min_topup?: number
   /** Preset amount options */
   amount_options: number[]
   /** Discount rates by amount */
@@ -294,4 +309,64 @@ export interface BillingHistoryResponse {
  */
 export interface CompleteOrderRequest {
   trade_no: string
+}
+
+// ============================================================================
+// Invoice Types
+// ============================================================================
+
+export type InvoiceStatus = 'pending' | 'completed' | 'rejected'
+
+export interface InvoiceRecord {
+  id: number
+  user_id: number
+  username: string
+  topup_id: number
+  trade_no: string
+  money: number
+  credit_amount_usd?: number
+  paid_amount?: number
+  paid_currency?: string
+  exchange_rate?: number
+  payment_method: string
+  billing_type: string
+  title: string
+  tax_id: string
+  email: string
+  street: string
+  city: string
+  zip_code: string
+  country: string
+  status: InvoiceStatus
+  download_url: string
+  message: string
+  create_time: number
+  complete_time: number
+}
+
+export interface InvoiceListResponse {
+  items: InvoiceRecord[]
+  total: number
+}
+
+export interface ApplyInvoiceRequest {
+  topup_id: number
+  billing_type: 'personal' | 'enterprise'
+  title: string
+  tax_id?: string
+  email: string
+  street?: string
+  city?: string
+  zip_code?: string
+  country?: string
+}
+
+export interface CompleteInvoiceRequest {
+  invoice_id: number
+  download_url?: string
+}
+
+export interface RejectInvoiceRequest {
+  invoice_id: number
+  message: string
 }

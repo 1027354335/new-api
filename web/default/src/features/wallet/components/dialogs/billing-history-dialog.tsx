@@ -16,8 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
-import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  Search,
+  Copy,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Download,
+  AlertCircle,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
@@ -53,12 +62,21 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/status-badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useBillingHistory } from '../../hooks/use-billing-history'
+import { downloadInvoiceFile, getMyInvoices, isApiSuccess } from '../../api'
+import type { InvoiceRecord, TopupRecord } from '../../types'
 import {
   getStatusConfig,
   getPaymentMethodName,
+  getInvoiceStatusConfig,
   formatTimestamp,
 } from '../../lib/billing'
+import { InvoiceRequestDialog } from './invoice-request-dialog'
 
 interface BillingHistoryDialogProps {
   open: boolean
@@ -88,6 +106,41 @@ export function BillingHistoryDialog({
   const [confirmTradeNo, setConfirmTradeNo] = useState<string | null>(null)
   const { copyToClipboard, copiedText } = useCopyToClipboard({ notify: false })
 
+  // Invoice state
+  const [invoiceMap, setInvoiceMap] = useState<
+    Record<string, InvoiceRecord>
+  >({})
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [selectedRecord, setSelectedRecord] = useState<TopupRecord | null>(
+    null
+  )
+
+  /**
+   * Load user invoices and build a map by trade_no
+   */
+  const loadInvoices = useCallback(async () => {
+    try {
+      // Fetch a large page to cover all visible records
+      const response = await getMyInvoices(1, 200)
+      if (isApiSuccess(response) && response.data) {
+        const map: Record<string, InvoiceRecord> = {}
+        for (const invoice of response.data.items || []) {
+          map[invoice.trade_no] = invoice
+        }
+        setInvoiceMap(map)
+      }
+    } catch {
+      // Silently fail — invoice display is non-critical
+    }
+  }, [])
+
+  // Load invoices when dialog opens
+  useEffect(() => {
+    if (open) {
+      loadInvoices()
+    }
+  }, [open, loadInvoices])
+
   const totalPages = Math.ceil(total / pageSize)
 
   const handleConfirmComplete = async () => {
@@ -97,6 +150,15 @@ export function BillingHistoryDialog({
         setConfirmTradeNo(null)
       }
     }
+  }
+
+  const handleRequestInvoice = (record: TopupRecord) => {
+    setSelectedRecord(record)
+    setInvoiceDialogOpen(true)
+  }
+
+  const handleInvoiceSuccess = () => {
+    loadInvoices()
   }
 
   return (
@@ -261,6 +323,78 @@ export function BillingHistoryDialog({
                           </div>
                         </div>
 
+                        {/* Invoice Actions */}
+                        {record.status === 'success' && (() => {
+                          const invoice = invoiceMap[record.trade_no]
+                          return (
+                            <div className='mt-3 flex items-center gap-2 border-t pt-3'>
+                              {!invoice && (
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={() => handleRequestInvoice(record)}
+                                >
+                                  <FileText className='mr-1.5 h-3.5 w-3.5' />
+                                  {t('Request Invoice')}
+                                </Button>
+                              )}
+                              {invoice?.status === 'pending' && (
+                                <StatusBadge
+                                  label={t(getInvoiceStatusConfig('pending').label)}
+                                  variant='warning'
+                                  showDot
+                                  copyable={false}
+                                />
+                              )}
+                              {invoice?.status === 'completed' && (
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={() => {
+                                    if (invoice.download_url.startsWith('http')) {
+                                      window.open(invoice.download_url, '_blank')
+                                      return
+                                    }
+                                    downloadInvoiceFile(invoice.id)
+                                  }}
+                                >
+                                  <Download className='mr-1.5 h-3.5 w-3.5' />
+                                  {t('Download Invoice')}
+                                </Button>
+                              )}
+                              {invoice?.status === 'rejected' && (
+                                <div className='flex items-center gap-2'>
+                                  <Tooltip>
+                                    <TooltipTrigger
+                                      render={
+                                        <div className='flex items-center'>
+                                          <StatusBadge
+                                            label={t(getInvoiceStatusConfig('rejected').label)}
+                                            variant='danger'
+                                            showDot
+                                            copyable={false}
+                                          />
+                                          <AlertCircle className='text-destructive ml-1 h-3.5 w-3.5' />
+                                        </div>
+                                      }
+                                    />
+                                    <TooltipContent>
+                                      <p>{invoice.message || t('Invoice request was rejected')}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Button
+                                    size='sm'
+                                    variant='outline'
+                                    onClick={() => handleRequestInvoice(record)}
+                                  >
+                                    {t('Re-apply')}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+
                         {/* Admin Actions */}
                         {isAdmin && record.status === 'pending' && (
                           <div className='mt-4 flex justify-end'>
@@ -346,6 +480,16 @@ export function BillingHistoryDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invoice Request Dialog */}
+      {selectedRecord && (
+        <InvoiceRequestDialog
+          open={invoiceDialogOpen}
+          onOpenChange={setInvoiceDialogOpen}
+          topupRecord={selectedRecord}
+          onSuccess={handleInvoiceSuccess}
+        />
+      )}
     </>
   )
 }

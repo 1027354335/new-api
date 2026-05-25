@@ -167,3 +167,29 @@ func TestEpayWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {
 	operation_setting.PayMethods = nil
 	require.False(t, isEpayWebhookEnabled())
 }
+
+func TestAlipayTopUpEnabled(t *testing.T) {
+	confirmPaymentComplianceForTest(t)
+	originalEnabled := setting.AlipayEnabled
+	originalAppId := setting.AlipayAppId
+	originalPrivateKey := setting.AlipayPrivateKey
+	originalPublicKey := setting.AlipayPublicKey
+	t.Cleanup(func() {
+		setting.AlipayEnabled = originalEnabled
+		setting.AlipayAppId = originalAppId
+		setting.AlipayPrivateKey = originalPrivateKey
+		setting.AlipayPublicKey = originalPublicKey
+	})
+
+	setting.AlipayEnabled = true
+	setting.AlipayAppId = ""
+	setting.AlipayPrivateKey = "private_key"
+	setting.AlipayPublicKey = "public_key"
+	require.False(t, isAlipayTopUpEnabled())
+
+	setting.AlipayAppId = "app_id"
+	require.True(t, isAlipayTopUpEnabled())
+
+	setting.AlipayPrivateKey = ""
+	require.False(t, isAlipayTopUpEnabled())
+}

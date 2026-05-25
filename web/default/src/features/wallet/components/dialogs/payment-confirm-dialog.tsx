@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DEFAULT_DISCOUNT_RATE } from '../../constants'
-import { formatCurrency, getPaymentIcon } from '../../lib'
+import { formatPaymentAmount, getPaymentIcon } from '../../lib'
 import type { PaymentMethod } from '../../types'
 
 interface PaymentConfirmDialogProps {
@@ -45,6 +45,9 @@ interface PaymentConfirmDialogProps {
   processing: boolean
   discountRate?: number
   usdExchangeRate?: number
+  paymentCurrency?: string
+  exchangeRate?: number
+  creditAmountUsd?: number
 }
 
 export function PaymentConfirmDialog({
@@ -58,6 +61,9 @@ export function PaymentConfirmDialog({
   processing,
   discountRate = DEFAULT_DISCOUNT_RATE,
   usdExchangeRate = 1,
+  paymentCurrency,
+  exchangeRate,
+  creditAmountUsd,
 }: PaymentConfirmDialogProps) {
   const { t } = useTranslation()
   const hasDiscount = discountRate > 0 && discountRate < 1 && paymentAmount > 0
@@ -99,23 +105,46 @@ export function PaymentConfirmDialog({
             ) : (
               <div className='flex items-baseline gap-2'>
                 <span className='text-2xl font-semibold'>
-                  {formatCurrency(paymentAmount)}
+                  {formatPaymentAmount(paymentAmount, paymentCurrency)}
                 </span>
                 {hasDiscount && (
                   <span className='text-muted-foreground text-sm line-through'>
-                    {formatCurrency(originalAmount)}
+                    {formatPaymentAmount(originalAmount, paymentCurrency)}
                   </span>
                 )}
               </div>
             )}
           </div>
 
+          {paymentCurrency && exchangeRate && (
+            <div className='flex items-center justify-between text-sm'>
+              <span className='text-muted-foreground'>
+                {t('Exchange Rate')}
+              </span>
+              <span className='font-medium'>
+                {t('1 USD = {{rate}} {{currency}}', {
+                  rate: exchangeRate,
+                  currency: paymentCurrency,
+                })}
+              </span>
+            </div>
+          )}
+
+          {creditAmountUsd && paymentCurrency && (
+            <div className='flex items-center justify-between text-sm'>
+              <span className='text-muted-foreground'>{t('Credited USD')}</span>
+              <span className='font-medium'>
+                {formatPaymentAmount(creditAmountUsd, 'USD')}
+              </span>
+            </div>
+          )}
+
           {hasDiscount && !calculating && (
             <div className='bg-muted/50 rounded-lg p-3'>
               <div className='flex items-center justify-between text-sm'>
                 <span className='text-muted-foreground'>{t('You save')}</span>
                 <span className='font-semibold text-green-600'>
-                  {formatCurrency(discountAmount)}
+                  {formatPaymentAmount(discountAmount, paymentCurrency)}
                 </span>
               </div>
             </div>

@@ -178,6 +178,60 @@ func GetPlaygroundImageReader(ctx context.Context, objectName string) (io.ReadCl
 	return obj, info.Size, contentType, nil
 }
 
+func UploadInvoicePDF(ctx context.Context, invoiceID int, data []byte) (string, error) {
+	cfg := storage_setting.GetStorageSetting()
+	if !cfg.Enabled {
+		return "", fmt.Errorf("storage setting is disabled")
+	}
+
+	client, err := storage_setting.GetClient()
+	if err != nil {
+		return "", err
+	}
+
+	if err := ensureBucketExists(ctx, client, cfg.Bucket, cfg.Region); err != nil {
+		return "", err
+	}
+
+	objectName := fmt.Sprintf("invoices/%d/%s.pdf", invoiceID, uuid.New().String())
+	_, err = client.PutObject(ctx, cfg.Bucket, objectName, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
+		ContentType: "application/pdf",
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to upload invoice PDF to minio: %w", err)
+	}
+
+	return objectName, nil
+}
+
+func GetInvoicePDFReader(ctx context.Context, objectName string) (io.ReadCloser, int64, string, error) {
+	cfg := storage_setting.GetStorageSetting()
+	if !cfg.Enabled {
+		return nil, 0, "", fmt.Errorf("storage setting is disabled")
+	}
+
+	client, err := storage_setting.GetClient()
+	if err != nil {
+		return nil, 0, "", err
+	}
+
+	info, err := client.StatObject(ctx, cfg.Bucket, objectName, minio.StatObjectOptions{})
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("failed to stat invoice PDF: %w", err)
+	}
+
+	obj, err := client.GetObject(ctx, cfg.Bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("failed to get invoice PDF: %w", err)
+	}
+
+	contentType := info.ContentType
+	if contentType == "" {
+		contentType = "application/pdf"
+	}
+	return obj, info.Size, contentType, nil
+}
+
 func ensureBucketExists(ctx context.Context, client *minio.Client, bucketName, region string) error {
 	// Cache bucket check to avoid redundant API calls
 	exists, err := client.BucketExists(ctx, bucketName)

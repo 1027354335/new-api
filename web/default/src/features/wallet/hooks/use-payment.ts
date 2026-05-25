@@ -22,19 +22,24 @@ import { toast } from 'sonner'
 import {
   calculateAmount,
   calculatePayPalAmount,
+  calculateAlipayAmount,
   calculateStripeAmount,
   calculateWaffoPancakeAmount,
   requestPayment,
   requestPayPalPayment,
+  requestAlipayPayment,
   requestStripePayment,
+  getTopupInfo,
   isApiSuccess,
 } from '../api'
 import {
   isStripePayment,
   isPayPalPayment,
+  isAlipayPayment,
   isWaffoPancakePayment,
   submitPaymentForm,
 } from '../lib'
+import type { PaymentAmountQuote } from '../types'
 
 // ============================================================================
 // Payment Hook
@@ -42,8 +47,32 @@ import {
 
 export function usePayment() {
   const [amount, setAmount] = useState<number>(0)
+  const [paymentCurrency, setPaymentCurrency] = useState<string>()
+  const [exchangeRate, setExchangeRate] = useState<number>()
+  const [creditAmountUsd, setCreditAmountUsd] = useState<number>()
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
+
+  const applyAmountResponse = useCallback(
+    (data: string | PaymentAmountQuote) => {
+      if (typeof data === 'object' && data !== null) {
+        const calculatedAmount = Number.parseFloat(String(data.amount))
+        setAmount(calculatedAmount)
+        setPaymentCurrency(data.currency || undefined)
+        setExchangeRate(data.exchange_rate)
+        setCreditAmountUsd(data.credit_amount_usd)
+        return calculatedAmount
+      }
+
+      const calculatedAmount = Number.parseFloat(data)
+      setAmount(calculatedAmount)
+      setPaymentCurrency(undefined)
+      setExchangeRate(undefined)
+      setCreditAmountUsd(undefined)
+      return calculatedAmount
+    },
+    []
+  )
 
   // Calculate payment amount
   const calculatePaymentAmount = useCallback(
@@ -51,34 +80,44 @@ export function usePayment() {
       try {
         setCalculating(true)
 
+        const topupInfoRes = await getTopupInfo()
+        const enableAlipayTopup = topupInfoRes?.data?.enable_alipay_topup
+
         const isStripe = isStripePayment(paymentType)
         const isPayPal = isPayPalPayment(paymentType)
+        const isAlipay = isAlipayPayment(paymentType, enableAlipayTopup)
         const isPancake = isWaffoPancakePayment(paymentType)
         const response = isStripe
           ? await calculateStripeAmount({ amount: topupAmount })
           : isPayPal
             ? await calculatePayPalAmount({ amount: topupAmount })
-          : isPancake
-            ? await calculateWaffoPancakeAmount({ amount: topupAmount })
-            : await calculateAmount({ amount: topupAmount })
+            : isAlipay
+              ? await calculateAlipayAmount({ amount: topupAmount })
+              : isPancake
+                ? await calculateWaffoPancakeAmount({ amount: topupAmount })
+                : await calculateAmount({ amount: topupAmount })
 
         if (isApiSuccess(response) && response.data) {
-          const calculatedAmount = parseFloat(response.data)
-          setAmount(calculatedAmount)
-          return calculatedAmount
+          return applyAmountResponse(response.data)
         }
 
         // Don't show error for calculation, just set to 0
         setAmount(0)
+        setPaymentCurrency(undefined)
+        setExchangeRate(undefined)
+        setCreditAmountUsd(undefined)
         return 0
       } catch (_error) {
         setAmount(0)
+        setPaymentCurrency(undefined)
+        setExchangeRate(undefined)
+        setCreditAmountUsd(undefined)
         return 0
       } finally {
         setCalculating(false)
       }
     },
-    []
+    [applyAmountResponse]
   )
 
   // Process payment
@@ -87,8 +126,12 @@ export function usePayment() {
       try {
         setProcessing(true)
 
+        const topupInfoRes = await getTopupInfo()
+        const enableAlipayTopup = topupInfoRes?.data?.enable_alipay_topup
+
         const isStripe = isStripePayment(paymentType)
         const isPayPal = isPayPalPayment(paymentType)
+        const isAlipay = isAlipayPayment(paymentType, enableAlipayTopup)
         const amount = Math.floor(topupAmount)
 
         const response = isStripe
@@ -101,10 +144,15 @@ export function usePayment() {
                 amount,
                 payment_method: 'paypal',
               })
-          : await requestPayment({
-              amount,
-              payment_method: paymentType,
-            })
+            : isAlipay
+              ? await requestAlipayPayment({
+                  amount,
+                  payment_method: 'alipay',
+                })
+              : await requestPayment({
+                  amount,
+                  payment_method: paymentType,
+                })
 
         if (!isApiSuccess(response)) {
           toast.error(response.message || i18next.t('Payment request failed'))
@@ -132,14 +180,14 @@ export function usePayment() {
           typeof response.data.approve_link === 'string'
             ? response.data.approve_link
             : ''
-        if (isPayPal && approveLink) {
+        if ((isPayPal || isAlipay) && approveLink) {
           window.open(approveLink, '_blank')
           toast.success(i18next.t('Redirecting to payment page...'))
           return true
         }
 
         // Handle non-Stripe payment
-        if (!isStripe && !isPayPal && response.data) {
+        if (!isStripe && !isPayPal && !isAlipay && response.data) {
           const url = (response as unknown as { url?: string }).url
           if (url) {
             submitPaymentForm(url, response.data)
@@ -161,6 +209,9 @@ export function usePayment() {
 
   return {
     amount,
+    paymentCurrency,
+    exchangeRate,
+    creditAmountUsd,
     calculating,
     processing,
     calculatePaymentAmount,

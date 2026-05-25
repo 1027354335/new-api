@@ -97,6 +97,18 @@ func InitOptionMap() {
 	common.OptionMap["PayPalClientSecret"] = setting.PayPalClientSecret
 	common.OptionMap["PayPalMode"] = setting.PayPalMode
 	common.OptionMap["PayPalCallbackUrl"] = setting.PayPalCallbackUrl
+	common.OptionMap["PayPalUsdToEurRate"] = strconv.FormatFloat(setting.PayPalUsdToEurRate, 'f', -1, 64)
+	common.OptionMap["AlipayEnabled"] = strconv.FormatBool(setting.AlipayEnabled)
+	common.OptionMap["AlipayAppId"] = setting.AlipayAppId
+	common.OptionMap["AlipayPrivateKey"] = setting.AlipayPrivateKey
+	common.OptionMap["AlipayPublicKey"] = setting.AlipayPublicKey
+	common.OptionMap["AlipaySandbox"] = strconv.FormatBool(setting.AlipaySandbox)
+	common.OptionMap["AlipayCallbackUrl"] = setting.AlipayCallbackUrl
+	common.OptionMap["AlipayNotifyUrl"] = setting.AlipayNotifyUrl
+	common.OptionMap["AlipayUsdToCnyRate"] = strconv.FormatFloat(setting.AlipayUsdToCnyRate, 'f', -1, 64)
+	common.OptionMap["AlipayBridgeEnabled"] = strconv.FormatBool(setting.AlipayBridgeEnabled)
+	common.OptionMap["AlipayBridgeCreateUrl"] = setting.AlipayBridgeCreateUrl
+	common.OptionMap["AlipayBridgeSecret"] = setting.AlipayBridgeSecret
 	common.OptionMap["WaffoEnabled"] = strconv.FormatBool(setting.WaffoEnabled)
 	common.OptionMap["WaffoApiKey"] = setting.WaffoApiKey
 	common.OptionMap["WaffoPrivateKey"] = setting.WaffoPrivateKey
@@ -118,6 +130,7 @@ func InitOptionMap() {
 	common.OptionMap["WaffoPancakeReturnURL"] = setting.WaffoPancakeReturnURL
 	common.OptionMap["WaffoPancakeUnitPrice"] = strconv.FormatFloat(setting.WaffoPancakeUnitPrice, 'f', -1, 64)
 	common.OptionMap["WaffoPancakeMinTopUp"] = strconv.Itoa(setting.WaffoPancakeMinTopUp)
+	common.OptionMap["LexwareApiKey"] = setting.LexwareApiKey
 	common.OptionMap["WaffoPancakeStoreID"] = setting.WaffoPancakeStoreID
 	common.OptionMap["WaffoPancakeProductID"] = setting.WaffoPancakeProductID
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
@@ -281,9 +294,15 @@ func updateOptionMap(key string, value string) (err error) {
 			common.ImageDownloadPermission = intValue
 		}
 	}
-	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "SMTPForceAuthLogin" {
+	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "SMTPForceAuthLogin" || key == "AlipaySandbox" {
 		boolValue := value == "true"
 		switch key {
+		case "AlipayEnabled":
+			setting.AlipayEnabled = boolValue
+		case "AlipayBridgeEnabled":
+			setting.AlipayBridgeEnabled = boolValue
+		case "AlipaySandbox":
+			setting.AlipaySandbox = boolValue
 		case "PasswordRegisterEnabled":
 			common.PasswordRegisterEnabled = boolValue
 		case "PasswordLoginEnabled":
@@ -438,6 +457,28 @@ func updateOptionMap(key string, value string) (err error) {
 		}
 	case "PayPalCallbackUrl":
 		setting.PayPalCallbackUrl = strings.TrimRight(value, "/")
+	case "PayPalUsdToEurRate":
+		if parsed, parseErr := strconv.ParseFloat(value, 64); parseErr == nil && parsed > 0 {
+			setting.PayPalUsdToEurRate = parsed
+		}
+	case "AlipayAppId":
+		setting.AlipayAppId = value
+	case "AlipayPrivateKey":
+		setting.AlipayPrivateKey = value
+	case "AlipayPublicKey":
+		setting.AlipayPublicKey = value
+	case "AlipayCallbackUrl":
+		setting.AlipayCallbackUrl = strings.TrimRight(value, "/")
+	case "AlipayNotifyUrl":
+		setting.AlipayNotifyUrl = strings.TrimRight(value, "/")
+	case "AlipayUsdToCnyRate":
+		if parsed, parseErr := strconv.ParseFloat(value, 64); parseErr == nil && parsed > 0 {
+			setting.AlipayUsdToCnyRate = parsed
+		}
+	case "AlipayBridgeCreateUrl":
+		setting.AlipayBridgeCreateUrl = strings.TrimRight(value, "/")
+	case "AlipayBridgeSecret":
+		setting.AlipayBridgeSecret = value
 	case "WaffoEnabled":
 		setting.WaffoEnabled = value == "true"
 	case "WaffoApiKey":
@@ -482,6 +523,8 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.WaffoPancakeUnitPrice, _ = strconv.ParseFloat(value, 64)
 	case "WaffoPancakeMinTopUp":
 		setting.WaffoPancakeMinTopUp, _ = strconv.Atoi(value)
+	case "LexwareApiKey":
+		setting.LexwareApiKey = value
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":

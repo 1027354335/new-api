@@ -68,7 +68,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useBillingHistory } from '../../hooks/use-billing-history'
-import { downloadInvoiceFile, getMyInvoices, isApiSuccess } from '../../api'
+import { downloadInvoiceFile, getMyInvoices, getAdminInvoices, isApiSuccess } from '../../api'
 import type { InvoiceRecord, TopupRecord } from '../../types'
 import {
   getStatusConfig,
@@ -121,7 +121,9 @@ export function BillingHistoryDialog({
   const loadInvoices = useCallback(async () => {
     try {
       // Fetch a large page to cover all visible records
-      const response = await getMyInvoices(1, 200)
+      const response = isAdmin
+        ? await getAdminInvoices(1, 500)
+        : await getMyInvoices(1, 200)
       if (isApiSuccess(response) && response.data) {
         const map: Record<string, InvoiceRecord> = {}
         for (const invoice of response.data.items || []) {
@@ -132,7 +134,7 @@ export function BillingHistoryDialog({
     } catch {
       // Silently fail — invoice display is non-critical
     }
-  }, [])
+  }, [isAdmin])
 
   // Load invoices when dialog opens
   useEffect(() => {

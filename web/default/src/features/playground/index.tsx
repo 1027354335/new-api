@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { nanoid } from 'nanoid'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import {
   getUserModels,
@@ -27,9 +28,6 @@ import {
   sendImageGeneration,
   getPlaygroundSessions,
 } from './api'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
-import { getUserModels, getUserGroups } from './api'
 import { PlaygroundChat } from './components/playground-chat'
 import { PlaygroundInput } from './components/playground-input'
 import { PlaygroundSessions } from './components/playground-sessions'
@@ -232,8 +230,6 @@ export function Playground() {
   // Load models
   const { data: modelsData, isLoading: isLoadingModels } = useQuery({
     queryKey: ['playground-models', currentUserId],
-    queryFn: getUserModels,
-    queryKey: ['playground-models'],
     queryFn: async () => {
       try {
         return await getUserModels()
@@ -251,8 +247,6 @@ export function Playground() {
   // Load groups
   const { data: groupsData } = useQuery({
     queryKey: ['playground-groups', currentUserId],
-    queryFn: getUserGroups,
-    queryKey: ['playground-groups'],
     queryFn: async () => {
       try {
         return await getUserGroups()

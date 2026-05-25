@@ -76,41 +76,6 @@ const defaultOperationsSettings: OperationsSettings = {
 export function OperationsSettings() {
   const { status } = useStatus()
 
-  const settings = useMemo(
-    () => getOptionValue(data?.data, defaultOperationsSettings),
-    [data?.data]
-  )
-
-  if (isLoading) {
-    return (
-      <div className='text-muted-foreground flex h-full w-full flex-1 items-center justify-center'>
-        {t('Loading maintenance settings...')}
-      </div>
-    )
-  }
-
-  const activeSection = (params?.section ?? OPERATIONS_DEFAULT_SECTION) as
-    | 'behavior'
-    | 'monitoring'
-    | 'email'
-    | 'worker'
-    | 'file-storage'
-    | 'logs'
-    | 'performance'
-    | 'update-checker'
-  const sectionContent = getOperationsSectionContent(
-    activeSection,
-    settings,
-    status?.version as string | undefined,
-    status?.start_time as number | null | undefined
-  )
-
-  return (
-    <div className='flex h-full w-full flex-1 flex-col'>
-      <div className='faded-bottom h-full w-full overflow-y-auto scroll-smooth pe-4 pb-12'>
-        <div className='space-y-4'>{sectionContent}</div>
-      </div>
-    </div>
   return (
     <SettingsPage
       routePath='/_authenticated/system-settings/operations/$section'

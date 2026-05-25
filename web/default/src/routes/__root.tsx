@@ -108,7 +108,10 @@ export const Route = createRootRouteWithContext<{
 
     // 只检查 setup 状态（如果需要）
     if (needsSetupCheck) {
-      const status = await getSetupStatus().catch((error) => {
+      const status = await Promise.race([
+        getSetupStatus(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]).catch((error) => {
         if (import.meta.env.DEV) {
           // eslint-disable-next-line no-console
           console.warn('[root.beforeLoad] setup status check failed', error)

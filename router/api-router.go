@@ -209,6 +209,10 @@ func SetApiRouter(router *gin.Engine) {
 			userInvoiceRoute.POST("/request", controller.ApplyInvoice)
 			userInvoiceRoute.GET("/my", controller.GetMyInvoices)
 			userInvoiceRoute.GET("/download", controller.DownloadInvoiceFile)
+			userInvoiceRoute.GET("/titles", controller.ListInvoiceTitles)
+			userInvoiceRoute.POST("/titles", controller.CreateInvoiceTitle)
+			userInvoiceRoute.PUT("/titles/:id", controller.UpdateInvoiceTitle)
+			userInvoiceRoute.DELETE("/titles/:id", controller.DeleteInvoiceTitle)
 		}
 
 		// Invoice routes (admin)

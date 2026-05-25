@@ -334,6 +334,7 @@ export interface InvoiceRecord {
   tax_id: string
   email: string
   street: string
+  address_detail: string
   city: string
   zip_code: string
   country: string
@@ -343,6 +344,29 @@ export interface InvoiceRecord {
   create_time: number
   complete_time: number
 }
+
+export interface InvoiceTitleCard {
+  id: number
+  user_id: number
+  name: string
+  billing_type: 'personal' | 'enterprise'
+  title: string
+  tax_id: string
+  email: string
+  street: string
+  address_detail: string
+  city: string
+  zip_code: string
+  country: string
+  is_default: boolean
+  create_time: number
+  update_time: number
+}
+
+export type InvoiceTitleCardRequest = Omit<
+  InvoiceTitleCard,
+  'id' | 'user_id' | 'create_time' | 'update_time'
+>
 
 export interface InvoiceListResponse {
   items: InvoiceRecord[]
@@ -356,6 +380,7 @@ export interface ApplyInvoiceRequest {
   tax_id?: string
   email: string
   street?: string
+  address_detail?: string
   city?: string
   zip_code?: string
   country?: string

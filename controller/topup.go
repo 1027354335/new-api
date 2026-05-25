@@ -134,7 +134,8 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
-	if isAlipayTopUpEnabled() {
+	enableAlipay := isAlipayTopUpVisible()
+	if enableAlipay {
 		hasAlipay := false
 		for _, method := range payMethods {
 			if method["type"] == model.PaymentMethodAlipay {
@@ -158,7 +159,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
 		"enable_creem_topup":               isCreemTopUpEnabled(),
 		"enable_paypal_topup":              isPayPalTopUpEnabled(),
-		"enable_alipay_topup":              isAlipayTopUpEnabled(),
+		"enable_alipay_topup":              enableAlipay,
 		"enable_waffo_topup":               enableWaffo,
 		"enable_waffo_pancake_topup":       enableWaffoPancake,
 		"enable_redemption":                complianceConfirmed,

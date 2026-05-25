@@ -44,6 +44,8 @@ import type {
   InvoiceListResponse,
   CompleteInvoiceRequest,
   RejectInvoiceRequest,
+  InvoiceTitleCard,
+  InvoiceTitleCardRequest,
 } from './types'
 
 // ============================================================================
@@ -386,6 +388,43 @@ export async function downloadInvoiceFile(invoiceId: number): Promise<void> {
   link.click()
   link.remove()
   window.URL.revokeObjectURL(blobUrl)
+}
+
+export async function getInvoiceTitleCards(): Promise<
+  ApiResponse<InvoiceTitleCard[]>
+> {
+  const res = await api.get('/api/invoice/titles', {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function createInvoiceTitleCard(
+  data: InvoiceTitleCardRequest
+): Promise<ApiResponse<InvoiceTitleCard>> {
+  const res = await api.post('/api/invoice/titles', data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function updateInvoiceTitleCard(
+  id: number,
+  data: InvoiceTitleCardRequest
+): Promise<ApiResponse<InvoiceTitleCard>> {
+  const res = await api.put(`/api/invoice/titles/${id}`, data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function deleteInvoiceTitleCard(
+  id: number
+): Promise<ApiResponse<null>> {
+  const res = await api.delete(`/api/invoice/titles/${id}`, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
 }
 
 /**

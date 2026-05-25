@@ -73,6 +73,10 @@ func isAlipayTopUpEnabled() bool {
 		strings.TrimSpace(setting.AlipayPublicKey) != ""
 }
 
+func isAlipayTopUpVisible() bool {
+	return isPaymentComplianceConfirmed() && setting.AlipayEnabled
+}
+
 func isWaffoTopUpEnabled() bool {
 	if !isPaymentComplianceConfirmed() {
 		return false

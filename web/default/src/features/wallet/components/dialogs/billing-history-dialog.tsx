@@ -26,6 +26,7 @@ import {
   FileText,
   Download,
   AlertCircle,
+  WalletCards,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyFromUSD } from '@/lib/currency'
@@ -77,6 +78,7 @@ import {
   formatTimestamp,
 } from '../../lib/billing'
 import { InvoiceRequestDialog } from './invoice-request-dialog'
+import { InvoiceTitleManagementDialog } from './invoice-title-management-dialog'
 
 interface BillingHistoryDialogProps {
   open: boolean
@@ -111,6 +113,7 @@ export function BillingHistoryDialog({
     Record<string, InvoiceRecord>
   >({})
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [titleManagementOpen, setTitleManagementOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<TopupRecord | null>(
     null
   )
@@ -186,6 +189,16 @@ export function BillingHistoryDialog({
                   className='h-9 pl-10'
                 />
               </div>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                className='h-9 whitespace-nowrap'
+                onClick={() => setTitleManagementOpen(true)}
+              >
+                <WalletCards className='mr-1.5 h-4 w-4' />
+                {t('Title Management')}
+              </Button>
               <Select
                 items={[
                   { value: '10', label: t('10 / page') },
@@ -492,6 +505,11 @@ export function BillingHistoryDialog({
           onSuccess={handleInvoiceSuccess}
         />
       )}
+
+      <InvoiceTitleManagementDialog
+        open={titleManagementOpen}
+        onOpenChange={setTitleManagementOpen}
+      />
     </>
   )
 }

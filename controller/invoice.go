@@ -18,15 +18,30 @@ import (
 )
 
 type ApplyInvoiceRequest struct {
-	TopUpId     int    `json:"topup_id"`
-	BillingType string `json:"billing_type"`
-	Title       string `json:"title"`
-	TaxId       string `json:"tax_id"`
-	Email       string `json:"email"`
-	Street      string `json:"street"`
-	City        string `json:"city"`
-	ZipCode     string `json:"zip_code"`
-	Country     string `json:"country"`
+	TopUpId       int    `json:"topup_id"`
+	BillingType   string `json:"billing_type"`
+	Title         string `json:"title"`
+	TaxId         string `json:"tax_id"`
+	Email         string `json:"email"`
+	Street        string `json:"street"`
+	AddressDetail string `json:"address_detail"`
+	City          string `json:"city"`
+	ZipCode       string `json:"zip_code"`
+	Country       string `json:"country"`
+}
+
+type InvoiceTitleRequest struct {
+	Name          string `json:"name"`
+	BillingType   string `json:"billing_type"`
+	Title         string `json:"title"`
+	TaxId         string `json:"tax_id"`
+	Email         string `json:"email"`
+	Street        string `json:"street"`
+	AddressDetail string `json:"address_detail"`
+	City          string `json:"city"`
+	ZipCode       string `json:"zip_code"`
+	Country       string `json:"country"`
+	IsDefault     bool   `json:"is_default"`
 }
 
 // ApplyInvoice 用户申请开票
@@ -76,6 +91,7 @@ func ApplyInvoice(c *gin.Context) {
 	req.TaxId = strings.TrimSpace(req.TaxId)
 	req.Email = strings.TrimSpace(req.Email)
 	req.Street = strings.TrimSpace(req.Street)
+	req.AddressDetail = strings.TrimSpace(req.AddressDetail)
 	req.City = strings.TrimSpace(req.City)
 	req.ZipCode = strings.TrimSpace(req.ZipCode)
 	req.Country = strings.ToUpper(strings.TrimSpace(req.Country))
@@ -123,6 +139,7 @@ func ApplyInvoice(c *gin.Context) {
 		TaxId:         req.TaxId,
 		Email:         req.Email,
 		Street:        req.Street,
+		AddressDetail: req.AddressDetail,
 		City:          req.City,
 		ZipCode:       req.ZipCode,
 		Country:       req.Country,
@@ -148,6 +165,143 @@ func isInvoiceCountryCode(country string) bool {
 		}
 	}
 	return true
+}
+
+func normalizeInvoiceTitleRequest(req *InvoiceTitleRequest) {
+	req.Name = strings.TrimSpace(req.Name)
+	req.BillingType = strings.TrimSpace(req.BillingType)
+	req.Title = strings.TrimSpace(req.Title)
+	req.TaxId = strings.TrimSpace(req.TaxId)
+	req.Email = strings.TrimSpace(req.Email)
+	req.Street = strings.TrimSpace(req.Street)
+	req.AddressDetail = strings.TrimSpace(req.AddressDetail)
+	req.City = strings.TrimSpace(req.City)
+	req.ZipCode = strings.TrimSpace(req.ZipCode)
+	req.Country = strings.ToUpper(strings.TrimSpace(req.Country))
+}
+
+func validateInvoiceTitleRequest(req InvoiceTitleRequest) string {
+	if req.Name == "" {
+		return "卡片名称不能为空"
+	}
+	if req.BillingType != "personal" && req.BillingType != "enterprise" {
+		return "billing_type 必须为 personal 或 enterprise"
+	}
+	if req.Title == "" {
+		return "发票抬头不能为空"
+	}
+	if req.Email == "" {
+		return "邮箱不能为空"
+	}
+	if req.BillingType == "enterprise" && req.TaxId == "" {
+		return "企业开票必须提供税号"
+	}
+	if req.Country != "" && !isInvoiceCountryCode(req.Country) {
+		return "country 必须为两位 ISO 国家码，例如 DE、CN、US"
+	}
+	return ""
+}
+
+// ListInvoiceTitles 获取当前用户的发票抬头卡片
+func ListInvoiceTitles(c *gin.Context) {
+	userId := c.GetInt("id")
+	titles, err := model.GetUserInvoiceTitles(userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, titles)
+}
+
+// CreateInvoiceTitle 创建发票抬头卡片
+func CreateInvoiceTitle(c *gin.Context) {
+	var req InvoiceTitleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorMsg(c, "参数错误")
+		return
+	}
+	normalizeInvoiceTitleRequest(&req)
+	if msg := validateInvoiceTitleRequest(req); msg != "" {
+		common.ApiErrorMsg(c, msg)
+		return
+	}
+
+	title := &model.InvoiceTitle{
+		UserId:        c.GetInt("id"),
+		Name:          req.Name,
+		BillingType:   req.BillingType,
+		Title:         req.Title,
+		TaxId:         req.TaxId,
+		Email:         req.Email,
+		Street:        req.Street,
+		AddressDetail: req.AddressDetail,
+		City:          req.City,
+		ZipCode:       req.ZipCode,
+		Country:       req.Country,
+		IsDefault:     req.IsDefault,
+	}
+	if err := title.Insert(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, title)
+}
+
+// UpdateInvoiceTitle 更新发票抬头卡片
+func UpdateInvoiceTitle(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiErrorMsg(c, "id 参数无效")
+		return
+	}
+	userId := c.GetInt("id")
+	title, err := model.GetUserInvoiceTitleById(id, userId)
+	if err != nil {
+		common.ApiErrorMsg(c, "抬头卡片不存在")
+		return
+	}
+
+	var req InvoiceTitleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorMsg(c, "参数错误")
+		return
+	}
+	normalizeInvoiceTitleRequest(&req)
+	if msg := validateInvoiceTitleRequest(req); msg != "" {
+		common.ApiErrorMsg(c, msg)
+		return
+	}
+
+	title.Name = req.Name
+	title.BillingType = req.BillingType
+	title.Title = req.Title
+	title.TaxId = req.TaxId
+	title.Email = req.Email
+	title.Street = req.Street
+	title.AddressDetail = req.AddressDetail
+	title.City = req.City
+	title.ZipCode = req.ZipCode
+	title.Country = req.Country
+	title.IsDefault = req.IsDefault
+	if err := title.Update(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, title)
+}
+
+// DeleteInvoiceTitle 删除发票抬头卡片
+func DeleteInvoiceTitle(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiErrorMsg(c, "id 参数无效")
+		return
+	}
+	if err := model.DeleteUserInvoiceTitleById(id, c.GetInt("id")); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
 }
 
 // GetMyInvoices 用户获取自己的发票列表

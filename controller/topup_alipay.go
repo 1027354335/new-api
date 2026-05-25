@@ -288,7 +288,7 @@ func RequestAlipayPay(c *gin.Context) {
 		return
 	}
 	if !isAlipayTopUpEnabled() {
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "alipay is not configured"})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "该支付方式未配置完善"})
 		return
 	}
 	if req.Amount < getAlipayMinTopup() {

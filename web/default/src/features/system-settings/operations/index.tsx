@@ -16,15 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
-import { useParams } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 import { useStatus } from '@/hooks/use-status'
-import { getOptionValue, useSystemOptions } from '../hooks/use-system-options'
+import { SettingsPage } from '../components/settings-page'
 import type { OperationsSettings } from '../types'
 import {
   OPERATIONS_DEFAULT_SECTION,
   getOperationsSectionContent,
+  getOperationsSectionMeta,
 } from './section-registry.tsx'
 
 const defaultOperationsSettings: OperationsSettings = {
@@ -76,12 +74,7 @@ const defaultOperationsSettings: OperationsSettings = {
 }
 
 export function OperationsSettings() {
-  const { t } = useTranslation()
-  const { data, isLoading } = useSystemOptions()
   const { status } = useStatus()
-  const params = useParams({
-    from: '/_authenticated/system-settings/operations/$section',
-  })
 
   const settings = useMemo(
     () => getOptionValue(data?.data, defaultOperationsSettings),
@@ -118,5 +111,18 @@ export function OperationsSettings() {
         <div className='space-y-4'>{sectionContent}</div>
       </div>
     </div>
+  return (
+    <SettingsPage
+      routePath='/_authenticated/system-settings/operations/$section'
+      defaultSettings={defaultOperationsSettings}
+      defaultSection={OPERATIONS_DEFAULT_SECTION}
+      getSectionContent={getOperationsSectionContent}
+      getSectionMeta={getOperationsSectionMeta}
+      extraArgs={[
+        status?.version as string | undefined,
+        status?.start_time as number | null | undefined,
+      ]}
+      loadingMessage='Loading maintenance settings...'
+    />
   )
 }

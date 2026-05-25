@@ -48,6 +48,12 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { RiskAcknowledgementDialog } from '@/components/risk-acknowledgement-dialog'
 import { confirmPaymentCompliance } from '../api'
+import {
+  SettingsForm,
+  SettingsSwitchContent,
+  SettingsSwitchItem,
+} from '../components/settings-form-layout'
+import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 import { AmountDiscountVisualEditor } from './amount-discount-visual-editor'
@@ -768,6 +774,10 @@ export function PaymentSettingsSection({
       StripeUnitPrice: values.StripeUnitPrice,
       StripeMinTopUp: values.StripeMinTopUp,
       StripePromotionCodesEnabled: values.StripePromotionCodesEnabled,
+      CreemApiKey: values.CreemApiKey.trim(),
+      CreemWebhookSecret: values.CreemWebhookSecret.trim(),
+      CreemTestMode: values.CreemTestMode,
+      CreemProducts: values.CreemProducts.trim(),
       PayPalEnabled: values.PayPalEnabled,
       PayPalClientId: values.PayPalClientId.trim(),
       PayPalClientSecret: values.PayPalClientSecret.trim(),
@@ -831,6 +841,10 @@ export function PaymentSettingsSection({
         initialRef.current.AlipayBridgeCreateUrl
       ),
       AlipayBridgeSecret: initialRef.current.AlipayBridgeSecret.trim(),
+      CreemApiKey: initialRef.current.CreemApiKey.trim(),
+      CreemWebhookSecret: initialRef.current.CreemWebhookSecret.trim(),
+      CreemTestMode: initialRef.current.CreemTestMode,
+      CreemProducts: initialRef.current.CreemProducts.trim(),
     }
 
     const updates: Array<{ key: string; value: string | number | boolean }> = []
@@ -1048,18 +1062,41 @@ export function PaymentSettingsSection({
       })
     }
 
+    if (
+      sanitized.CreemApiKey &&
+      sanitized.CreemApiKey !== initial.CreemApiKey
+    ) {
+      updates.push({ key: 'CreemApiKey', value: sanitized.CreemApiKey })
+    }
+
+    if (
+      sanitized.CreemWebhookSecret &&
+      sanitized.CreemWebhookSecret !== initial.CreemWebhookSecret
+    ) {
+      updates.push({
+        key: 'CreemWebhookSecret',
+        value: sanitized.CreemWebhookSecret,
+      })
+    }
+
+    if (sanitized.CreemTestMode !== initial.CreemTestMode) {
+      updates.push({ key: 'CreemTestMode', value: sanitized.CreemTestMode })
+    }
+
+    if (
+      normalizeJsonForComparison(sanitized.CreemProducts) !==
+      normalizeJsonForComparison(initial.CreemProducts)
+    ) {
+      updates.push({ key: 'CreemProducts', value: sanitized.CreemProducts })
+    }
+
     for (const update of updates) {
       await updateOption.mutateAsync(update)
     }
   }
 
   return (
-    <SettingsSection
-      title={t('Payment Gateway')}
-      description={t(
-        'Configure recharge pricing and payment gateway integrations'
-      )}
-    >
+    <SettingsSection title={t('Payment Gateway')}>
       {!complianceConfirmed ? (
         <Alert variant='destructive' className='mb-6'>
           <ShieldAlert className='h-4 w-4' />
@@ -1125,14 +1162,19 @@ export function PaymentSettingsSection({
 
       {/* eslint-disable react-hooks/refs */}
       <Form {...form}>
-        <form
+        <SettingsForm
           onSubmit={form.handleSubmit(onSubmit)}
           className={cn(
-            'space-y-8',
+            'gap-y-8',
             !complianceConfirmed && 'pointer-events-none opacity-40'
           )}
           data-no-autosubmit='true'
         >
+          <SettingsPageFormActions
+            onSave={form.handleSubmit(onSubmit)}
+            isSaving={updateOption.isPending}
+            saveLabel='Save all settings'
+          />
           <div className='space-y-4'>
             <div>
               <h3 className='text-lg font-medium'>{t('General Settings')}</h3>
@@ -1360,20 +1402,6 @@ export function PaymentSettingsSection({
                 )}
               />
             </div>
-
-            <Button
-              type='button'
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                saveGeneralSettings()
-              }}
-              disabled={updateOption.isPending}
-            >
-              {updateOption.isPending
-                ? t('Saving...')
-                : t('Save general settings')}
-            </Button>
           </div>
 
           <Separator />
@@ -1475,20 +1503,6 @@ export function PaymentSettingsSection({
                 )}
               />
             </div>
-
-            <Button
-              type='button'
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                saveEpaySettings()
-              }}
-              disabled={updateOption.isPending}
-            >
-              {updateOption.isPending
-                ? t('Saving...')
-                : t('Save Epay settings')}
-            </Button>
           </div>
 
           <Separator />
@@ -1662,39 +1676,23 @@ export function PaymentSettingsSection({
                 control={form.control}
                 name='StripePromotionCodesEnabled'
                 render={({ field }) => (
-                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                    <div className='space-y-0.5'>
-                      <FormLabel className='text-base'>
-                        {t('Promotion codes')}
-                      </FormLabel>
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Promotion codes')}</FormLabel>
                       <FormDescription>
                         {t('Allow users to enter promo codes')}
                       </FormDescription>
-                    </div>
+                    </SettingsSwitchContent>
                     <FormControl>
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                  </FormItem>
+                  </SettingsSwitchItem>
                 )}
               />
             </div>
-
-            <Button
-              type='button'
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                saveStripeSettings()
-              }}
-              disabled={updateOption.isPending}
-            >
-              {updateOption.isPending
-                ? t('Saving...')
-                : t('Save Stripe settings')}
-            </Button>
           </div>
 
           <Separator />
@@ -1774,22 +1772,20 @@ export function PaymentSettingsSection({
               control={form.control}
               name='CreemTestMode'
               render={({ field }) => (
-                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                  <div className='space-y-0.5'>
-                    <FormLabel className='text-base'>
-                      {t('Test Mode')}
-                    </FormLabel>
+                <SettingsSwitchItem>
+                  <SettingsSwitchContent>
+                    <FormLabel>{t('Test Mode')}</FormLabel>
                     <FormDescription>
                       {t('Enable test mode for Creem payments')}
                     </FormDescription>
-                  </div>
+                  </SettingsSwitchContent>
                   <FormControl>
                     <Switch
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
-                </FormItem>
+                </SettingsSwitchItem>
               )}
             />
 
@@ -1844,20 +1840,6 @@ export function PaymentSettingsSection({
                 </FormItem>
               )}
             />
-
-            <Button
-              type='button'
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                saveCreemSettings()
-              }}
-              disabled={updateOption.isPending}
-            >
-              {updateOption.isPending
-                ? t('Saving...')
-                : t('Save Creem settings')}
-            </Button>
           </div>
 
           <Separator />
@@ -2353,6 +2335,7 @@ export function PaymentSettingsSection({
             {updateOption.isPending ? t('Saving...') : t('Save all settings')}
           </Button>
         </form>
+        </SettingsForm>
       </Form>
 
       <Separator />

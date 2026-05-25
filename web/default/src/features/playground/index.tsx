@@ -27,6 +27,9 @@ import {
   sendImageGeneration,
   getPlaygroundSessions,
 } from './api'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { getUserModels, getUserGroups } from './api'
 import { PlaygroundChat } from './components/playground-chat'
 import { PlaygroundInput } from './components/playground-input'
 import { PlaygroundSessions } from './components/playground-sessions'
@@ -113,6 +116,7 @@ function startImageTask(
 }
 
 export function Playground() {
+  const { t } = useTranslation()
   const currentUserId = useAuthStore((state) => state.auth.user?.id)
   const {
     config,
@@ -229,12 +233,38 @@ export function Playground() {
   const { data: modelsData, isLoading: isLoadingModels } = useQuery({
     queryKey: ['playground-models', currentUserId],
     queryFn: getUserModels,
+    queryKey: ['playground-models'],
+    queryFn: async () => {
+      try {
+        return await getUserModels()
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t('Failed to load playground models')
+        )
+        return []
+      }
+    },
   })
 
   // Load groups
   const { data: groupsData } = useQuery({
     queryKey: ['playground-groups', currentUserId],
     queryFn: getUserGroups,
+    queryKey: ['playground-groups'],
+    queryFn: async () => {
+      try {
+        return await getUserGroups()
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t('Failed to load playground groups')
+        )
+        return []
+      }
+    },
   })
 
   const { data: sessionsData } = useQuery({

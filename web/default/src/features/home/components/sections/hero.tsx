@@ -17,11 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, BookOpen } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { CherryStudio } from '@lobehub/icons'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { useStatus } from '@/hooks/use-status'
 import { HeroTerminalDemo } from '../hero-terminal-demo'
 
 interface HeroProps {
@@ -45,40 +44,6 @@ const MoreIcon = () => (
 
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
-  const { status } = useStatus()
-  const docsUrl = (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
-
-  const renderDocsButton = () => {
-    const isExternal = docsUrl.startsWith('http')
-    if (isExternal) {
-      return (
-        <Button
-          variant='outline'
-          className='group border-border/50 hover:border-border hover:bg-muted/50 rounded-lg h-11 px-5 text-sm font-medium inline-flex items-center gap-1.5'
-          render={
-            <a
-              href={docsUrl}
-              target='_blank'
-              rel='noopener noreferrer'
-            />
-          }
-        >
-          <BookOpen className='size-4 text-muted-foreground/80 group-hover:text-foreground transition-colors duration-200' />
-          <span>{t('Docs')}</span>
-        </Button>
-      )
-    }
-    return (
-      <Button
-        variant='outline'
-        className='group border-border/50 hover:border-border hover:bg-muted/50 rounded-lg h-11 px-5 text-sm font-medium inline-flex items-center gap-1.5'
-        render={<Link to={docsUrl} />}
-      >
-        <BookOpen className='size-4 text-muted-foreground/80 group-hover:text-foreground transition-colors duration-200' />
-        <span>{t('Docs')}</span>
-      </Button>
-    )
-  }
 
   return (
     <section className='relative z-10 overflow-hidden px-6 pt-24 pb-16 md:pt-32 md:pb-24 lg:pt-36 lg:pb-28'>
@@ -147,7 +112,6 @@ export function Hero(props: HeroProps) {
                   {t('Go to Dashboard')}
                   <ArrowRight className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5' />
                 </Button>
-                {renderDocsButton()}
               </>
             ) : (
               <>
@@ -165,7 +129,6 @@ export function Hero(props: HeroProps) {
                 >
                   {t('View Pricing')}
                 </Button>
-                {renderDocsButton()}
               </>
             )}
           </div>

@@ -573,6 +573,7 @@ func AdminCompleteInvoice(c *gin.Context) {
 		}
 		subject := "您的发票已开具"
 		content := fmt.Sprintf("您好 %s，\n\n您申请的发票（订单号：%s）已开具完成，请登录系统下载。\n\n感谢您的使用！", user.Username, invoice.TradeNo)
+		content = common.RenderEmailNoticeTemplate(subject, content, "前往控制台", "https://www.oss-energietechnik.de/")
 		_ = common.SendEmail(subject, user.Email, content)
 	}()
 
@@ -620,6 +621,7 @@ func AdminRejectInvoice(c *gin.Context) {
 		}
 		subject := "您的发票申请已被拒绝"
 		content := fmt.Sprintf("您好 %s，\n\n您申请的发票（订单号：%s）已被拒绝。\n原因：%s\n\n如有疑问，请联系管理员。", user.Username, invoice.TradeNo, req.Message)
+		content = common.RenderEmailNoticeTemplate(subject, content, "前往控制台", "https://www.oss-energietechnik.de/")
 		_ = common.SendEmail(subject, user.Email, content)
 	}()
 

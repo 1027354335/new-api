@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { getSelf } from '@/lib/api'
+import { getSelf, api } from '@/lib/api'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import {
@@ -67,7 +67,7 @@ interface WalletProps {
 }
 
 export function Wallet(props: WalletProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [user, setUser] = useState<UserWalletData | null>(null)
   const [userLoading, setUserLoading] = useState(true)
   const [topupAmount, setTopupAmount] = useState(0)
@@ -220,6 +220,14 @@ export function Wallet(props: WalletProps) {
   const handlePaymentConfirm = async () => {
     if (!selectedPaymentMethod) return
 
+    // Sync current i18n language preference to the backend database first
+    // so the generated agreement PDF is in the user's current UI language.
+    try {
+      await api.put('/api/user/self', { language: i18n.language })
+    } catch {
+      // Best-effort update, do not block payment flow on failure
+    }
+
     const isPancake = isWaffoPancakePayment(selectedPaymentMethod.type)
     const success = isPancake
       ? await processWaffoPancakePayment(topupAmount)
@@ -349,15 +357,17 @@ export function Wallet(props: WalletProps) {
               />
             </div>
 
-            <AffiliateRewardsCard
-              user={user}
-              affiliateLink={affiliateLink}
-              onTransfer={() => setTransferDialogOpen(true)}
-              complianceConfirmed={
-                topupInfo?.payment_compliance_confirmed !== false
-              }
-              loading={affiliateLoading}
-            />
+            {topupInfo?.enable_invite !== false && (
+              <AffiliateRewardsCard
+                user={user}
+                affiliateLink={affiliateLink}
+                onTransfer={() => setTransferDialogOpen(true)}
+                complianceConfirmed={
+                  topupInfo?.payment_compliance_confirmed !== false
+                }
+                loading={affiliateLoading}
+              />
+            )}
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
@@ -376,6 +386,8 @@ export function Wallet(props: WalletProps) {
         paymentCurrency={paymentCurrency}
         exchangeRate={exchangeRate}
         creditAmountUsd={creditAmountUsd}
+        username={user?.username}
+        email={user?.email}
       />
 
       <TransferDialog

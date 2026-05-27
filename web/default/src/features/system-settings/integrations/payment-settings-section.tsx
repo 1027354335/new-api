@@ -368,17 +368,12 @@ export function PaymentSettingsSection({
     resolver: zodResolver(paymentSchema) as Resolver<PaymentFormValues>,
     mode: 'onChange', // Enable real-time validation
     defaultValues: {
-      ...defaultValues,
-      PayMethods: formatJsonForEditor(defaultValues.PayMethods),
-      AmountOptions: formatJsonForEditor(defaultValues.AmountOptions),
-      AmountDiscount: formatJsonForEditor(defaultValues.AmountDiscount),
-      CreemProducts: formatJsonForEditor(defaultValues.CreemProducts),
-      PayPalMode: defaultValues.PayPalMode || 'sandbox',
       ...initialFormValues,
       PayMethods: formatJsonForEditor(initialFormValues.PayMethods),
       AmountOptions: formatJsonForEditor(initialFormValues.AmountOptions),
       AmountDiscount: formatJsonForEditor(initialFormValues.AmountDiscount),
       CreemProducts: formatJsonForEditor(initialFormValues.CreemProducts),
+      PayPalMode: initialFormValues.PayPalMode || 'sandbox',
     },
   })
 
@@ -2405,8 +2400,6 @@ export function PaymentSettingsSection({
           <Button type='submit' disabled={updateOption.isPending}>
             {updateOption.isPending ? t('Saving...') : t('Save all settings')}
           </Button>
-        </SettingsForm>
-      </Form>
 
           <Separator />
 

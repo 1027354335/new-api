@@ -16,12 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// ============================================================================
-// Wallet Library Exports
-// ============================================================================
+import i18next from 'i18next'
+import { normalizeInterfaceLanguage } from '@/i18n/languages'
 
-export * from './affiliate'
-export * from './agreement-language'
-export * from './format'
-export * from './payment'
-export * from './ui'
+export function getCurrentAgreementLanguage(): string {
+  return normalizeInterfaceLanguage(i18next.language)
+}

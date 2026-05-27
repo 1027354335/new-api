@@ -24,8 +24,9 @@ import (
 )
 
 type PayPalPayRequest struct {
-	Amount        int64  `json:"amount"`
-	PaymentMethod string `json:"payment_method"`
+	Amount            int64  `json:"amount"`
+	PaymentMethod     string `json:"payment_method"`
+	AgreementLanguage string `json:"agreement_language,omitempty"`
 }
 
 const paypalCurrencyCode = "EUR"
@@ -368,18 +369,19 @@ func RequestPayPalPay(c *gin.Context) {
 	}
 
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          amount,
-		Money:           payMoney,
-		CreditAmountUsd: creditAmountUSD,
-		PaidAmount:      payMoney,
-		PaidCurrency:    paypalCurrencyCode,
-		ExchangeRate:    exchangeRate,
-		TradeNo:         tradeNo,
-		PaymentMethod:   model.PaymentMethodPayPal,
-		PaymentProvider: model.PaymentProviderPayPal,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:            id,
+		Amount:            amount,
+		Money:             payMoney,
+		CreditAmountUsd:   creditAmountUSD,
+		PaidAmount:        payMoney,
+		PaidCurrency:      paypalCurrencyCode,
+		ExchangeRate:      exchangeRate,
+		TradeNo:           tradeNo,
+		PaymentMethod:     model.PaymentMethodPayPal,
+		PaymentProvider:   model.PaymentProviderPayPal,
+		CreateTime:        time.Now().Unix(),
+		Status:            common.TopUpStatusPending,
+		AgreementLanguage: normalizeAgreementLanguage(req.AgreementLanguage),
 	}
 	if err := topUp.Insert(); err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("PayPal create topup failed user_id=%d trade_no=%s amount=%d error=%q", id, tradeNo, req.Amount, err.Error()))

@@ -20,6 +20,7 @@ import { useState, useCallback } from 'react'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 import { requestWaffoPancakePayment, isApiSuccess } from '../api'
+import { getCurrentAgreementLanguage } from '../lib'
 
 function getCheckoutUrl(data: unknown): string | null {
   if (!data || typeof data !== 'object') {
@@ -74,6 +75,7 @@ export function useWaffoPancakePayment() {
       try {
         const response = await requestWaffoPancakePayment({
           amount: Math.floor(topupAmount),
+          agreement_language: getCurrentAgreementLanguage(),
         })
 
         if (isApiSuccess(response)) {

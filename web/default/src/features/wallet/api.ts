@@ -390,6 +390,31 @@ export async function downloadInvoiceFile(invoiceId: number): Promise<void> {
   window.URL.revokeObjectURL(blobUrl)
 }
 
+/**
+ * Download an agreement PDF file.
+ */
+export async function downloadAgreementFile(topupId: number): Promise<void> {
+  const res = await api.get(`/api/user/topup/agreement/download?id=${topupId}`, {
+    responseType: 'blob',
+    disableDuplicate: true,
+  } as Record<string, unknown>)
+
+  const contentDisposition = res.headers['content-disposition']
+  const filenameMatch =
+    typeof contentDisposition === 'string'
+      ? contentDisposition.match(/filename="?([^";]+)"?/)
+      : null
+  const filename = filenameMatch?.[1] || `agreement_${topupId}.pdf`
+  const blobUrl = window.URL.createObjectURL(res.data)
+  const link = document.createElement('a')
+  link.href = blobUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(blobUrl)
+}
+
 export async function getInvoiceTitleCards(): Promise<
   ApiResponse<InvoiceTitleCard[]>
 > {

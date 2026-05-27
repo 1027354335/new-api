@@ -99,6 +99,8 @@ export interface CreemPaymentRequest {
   product_id: string
   /** Payment method identifier */
   payment_method: 'creem'
+  /** Language used when the payment agreement is accepted */
+  agreement_language?: string
 }
 
 /**
@@ -179,6 +181,8 @@ export interface TopupInfo {
   payment_compliance_confirmed?: boolean
   /** Current compliance terms version */
   payment_compliance_terms_version?: string
+  /** Whether the invitation/referral rewards program is enabled */
+  enable_invite?: boolean
 }
 
 /**
@@ -207,6 +211,8 @@ export interface PaymentRequest {
   amount: number
   /** Payment method identifier */
   payment_method: string
+  /** Language used when the payment agreement is accepted */
+  agreement_language?: string
 }
 
 /**
@@ -217,6 +223,8 @@ export interface WaffoPaymentRequest {
   amount: number
   /** Optional server-side Waffo payment method index */
   pay_method_index?: number
+  /** Language used when the payment agreement is accepted */
+  agreement_language?: string
 }
 
 /**
@@ -225,6 +233,8 @@ export interface WaffoPaymentRequest {
 export interface WaffoPancakePaymentRequest {
   /** Topup amount */
   amount: number
+  /** Language used when the payment agreement is accepted */
+  agreement_language?: string
 }
 
 /**
@@ -265,6 +275,8 @@ export interface UserWalletData {
   aff_count: number
   /** User group */
   group: string
+  /** User email */
+  email?: string
 }
 
 /**

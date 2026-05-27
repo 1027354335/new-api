@@ -83,6 +83,18 @@ type InvoiceFormValues = {
   country?: string
 }
 
+const emptyInvoiceFormValues: InvoiceFormValues = {
+  billing_type: 'personal',
+  title: '',
+  tax_id: '',
+  email: '',
+  street: '',
+  address_detail: '',
+  city: '',
+  zip_code: '',
+  country: '',
+}
+
 export const COUNTRY_OPTIONS = [
   { code: 'AD', name: 'Andorra' },
   { code: 'AE', name: 'United Arab Emirates' },
@@ -358,17 +370,7 @@ export function InvoiceRequestDialog({
     resolver: zodResolver(
       invoiceFormSchema
     ) as unknown as Resolver<InvoiceFormValues>,
-    defaultValues: {
-      billing_type: 'personal',
-      title: '',
-      tax_id: '',
-      email: '',
-      street: '',
-      address_detail: '',
-      city: '',
-      zip_code: '',
-      country: '',
-    },
+    defaultValues: emptyInvoiceFormValues,
   })
 
   const billingType = form.watch('billing_type')
@@ -391,17 +393,7 @@ export function InvoiceRequestDialog({
     if (open) {
       setCountryOpen(false)
       setSelectedTitleCardId('none')
-      form.reset({
-        billing_type: 'personal',
-        title: '',
-        tax_id: '',
-        email: '',
-        street: '',
-        address_detail: '',
-        city: '',
-        zip_code: '',
-        country: '',
-      })
+      form.reset(emptyInvoiceFormValues)
       getInvoiceTitleCards()
         .then((response) => {
           if (!isApiSuccess(response)) return
@@ -484,6 +476,7 @@ export function InvoiceRequestDialog({
                       (item) => String(item.id) === nextValue
                     )
                     if (card) applyTitleCard(card)
+                    else form.reset(emptyInvoiceFormValues)
                   }}
                 >
                   <SelectTrigger className='w-full'>

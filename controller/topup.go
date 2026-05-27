@@ -2,9 +2,11 @@ package controller
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -163,6 +165,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"enable_waffo_topup":               enableWaffo,
 		"enable_waffo_pancake_topup":       enableWaffoPancake,
 		"enable_redemption":                complianceConfirmed,
+		"enable_invite":                    common.QuotaForInviter > 0 || common.QuotaForInvitee > 0,
 		"payment_compliance_confirmed":     complianceConfirmed,
 		"payment_compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
 		"waffo_pay_methods": func() interface{} {
@@ -187,12 +190,27 @@ func GetTopUpInfo(c *gin.Context) {
 }
 
 type EpayRequest struct {
-	Amount        int64  `json:"amount"`
-	PaymentMethod string `json:"payment_method"`
+	Amount            int64  `json:"amount"`
+	PaymentMethod     string `json:"payment_method"`
+	AgreementLanguage string `json:"agreement_language,omitempty"`
 }
 
 type AmountRequest struct {
 	Amount int64 `json:"amount"`
+}
+
+func normalizeAgreementLanguage(value string) string {
+	lang := strings.ToLower(strings.TrimSpace(value))
+	lang = strings.ReplaceAll(lang, "_", "-")
+	if strings.HasPrefix(lang, "zh") {
+		return "zh"
+	}
+	switch lang {
+	case "en", "fr", "ja", "ru", "vi":
+		return lang
+	default:
+		return ""
+	}
 }
 
 func GetEpayClient() *epay.Client {
@@ -309,14 +327,15 @@ func RequestEpay(c *gin.Context) {
 		amount = dAmount.Div(dQuotaPerUnit).IntPart()
 	}
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          amount,
-		Money:           payMoney,
-		TradeNo:         tradeNo,
-		PaymentMethod:   req.PaymentMethod,
-		PaymentProvider: model.PaymentProviderEpay,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:            id,
+		Amount:            amount,
+		Money:             payMoney,
+		TradeNo:           tradeNo,
+		PaymentMethod:     req.PaymentMethod,
+		PaymentProvider:   model.PaymentProviderEpay,
+		CreateTime:        time.Now().Unix(),
+		Status:            common.TopUpStatusPending,
+		AgreementLanguage: normalizeAgreementLanguage(req.AgreementLanguage),
 	}
 	err = topUp.Insert()
 	if err != nil {
@@ -571,4 +590,58 @@ func AdminCompleteTopUp(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, nil)
+}
+
+// DownloadTopupAgreement downloads the agreement PDF for a TopUp order
+func DownloadTopupAgreement(c *gin.Context) {
+	idStr := c.Query("id")
+	if idStr == "" {
+		common.ApiErrorMsg(c, "id 参数不能为空")
+		return
+	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		common.ApiErrorMsg(c, "id 参数无效")
+		return
+	}
+
+	topUp := model.GetTopUpById(id)
+	if topUp == nil {
+		common.ApiErrorMsg(c, "充值订单不存在")
+		return
+	}
+
+	userId := c.GetInt("id")
+	role := c.GetInt("role")
+
+	// 权限检查：非管理员只能下载自己的协议
+	if role < common.RoleAdminUser && topUp.UserId != userId {
+		common.ApiErrorMsg(c, "无权下载此订单的签署协议")
+		return
+	}
+
+	if topUp.AgreementPdf == "" {
+		common.ApiErrorMsg(c, "电子签署协议尚未生成")
+		return
+	}
+
+	if strings.HasPrefix(topUp.AgreementPdf, "minio:") {
+		objectName := strings.TrimPrefix(topUp.AgreementPdf, "minio:")
+		reader, contentLength, contentType, err := service.DownloadAgreementReader(c.Request.Context(), objectName)
+		if err != nil {
+			common.ApiErrorMsg(c, "下载协议文件失败，文件不存在或已失效")
+			return
+		}
+		defer reader.Close()
+
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="agreement_%d.pdf"`, topUp.Id))
+		if contentLength >= 0 {
+			c.Header("Content-Length", strconv.FormatInt(contentLength, 10))
+		}
+		_, _ = io.Copy(c.Writer, reader)
+		return
+	}
+
+	common.ApiErrorMsg(c, "非法的协议存储路径")
 }

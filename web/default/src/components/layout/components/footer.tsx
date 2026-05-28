@@ -42,7 +42,7 @@ interface FooterProps {
 }
 
 // ICP 备案号，修改为实际备案号
-const ICP_NUMBER = '川ICP备XXXXXXXX号'
+const ICP_NUMBER = '蜀ICP备2026027714号'
 
 const NEW_API_FOOTER_ATTRIBUTION_KEY = [
   'footer',

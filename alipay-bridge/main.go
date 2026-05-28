@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -219,13 +220,17 @@ func handleCreate(w http.ResponseWriter, r *http.Request, cfg config, client *al
 	}
 	var req createRequest
 	if err := json.Unmarshal(body, &req); err != nil {
+		log.Printf("[Create] Invalid JSON body: %v", err)
 		writeJSON(w, http.StatusBadRequest, createResponse{Message: "error", Data: map[string]any{"error": "invalid request"}})
 		return
 	}
 	if err := validateCreateRequest(&req); err != nil {
+		log.Printf("[Create] Validation failed for trade_no=%s: %v", req.TradeNo, err)
 		writeJSON(w, http.StatusBadRequest, createResponse{Message: "error", Data: map[string]any{"error": err.Error()}})
 		return
 	}
+	log.Printf("[Create] Received payment creation request: trade_no=%s, total_amount=%s, subject=%s", req.TradeNo, req.TotalAmount, req.Subject)
+
 	if req.NotifyURL == "" && cfg.PublicBaseURL != "" {
 		req.NotifyURL = cfg.PublicBaseURL + "/api/alipay/notify"
 	}
@@ -235,18 +240,27 @@ func handleCreate(w http.ResponseWriter, r *http.Request, cfg config, client *al
 
 	var p alipay.TradePagePay
 	p.NotifyURL = req.NotifyURL
-	p.ReturnURL = appendTradeNo(req.ReturnURL, req.TradeNo)
+	// Strip custom query parameters from ReturnURL to satisfy Alipay's requirement of not having custom query parameters
+	if parsed, err := url.Parse(req.ReturnURL); err == nil {
+		parsed.RawQuery = ""
+		p.ReturnURL = parsed.String()
+	} else {
+		p.ReturnURL = req.ReturnURL
+	}
 	p.Subject = req.Subject
 	p.OutTradeNo = req.TradeNo
 	p.TotalAmount = req.TotalAmount
 	p.ProductCode = "FAST_INSTANT_TRADE_PAY"
 
+	log.Printf("[Create] Generating Alipay payment URL with notify_url=%s, return_url=%s", p.NotifyURL, p.ReturnURL)
+
 	payURL, err := client.TradePagePay(p)
 	if err != nil {
-		log.Printf("alipay create failed trade_no=%s error=%v", req.TradeNo, err)
+		log.Printf("[Create] Alipay PagePay creation failed: trade_no=%s, error=%v", req.TradeNo, err)
 		writeJSON(w, http.StatusBadGateway, createResponse{Message: "error", Data: map[string]any{"error": "failed to create alipay order"}})
 		return
 	}
+	log.Printf("[Create] Payment URL successfully generated: trade_no=%s, approve_link=%s", req.TradeNo, payURL.String())
 	writeJSON(w, http.StatusOK, createResponse{
 		Message: "success",
 		Data: map[string]any{
@@ -262,50 +276,80 @@ func handleNotify(w http.ResponseWriter, r *http.Request, cfg config, client *al
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		log.Printf("alipay notify parse failed: %v", err)
+		log.Printf("[Notify] Failed to parse request form: %v", err)
 		_, _ = w.Write([]byte("fail"))
 		return
 	}
+	outTradeNo := r.Form.Get("out_trade_no")
+	tradeStatus := r.Form.Get("trade_status")
+	totalAmount := r.Form.Get("total_amount")
+	log.Printf("[Notify] Received asynchronous notify callback: trade_no=%s, trade_status=%s, total_amount=%s", outTradeNo, tradeStatus, totalAmount)
+
+	if outTradeNo == "" {
+		log.Printf("[Notify] Empty out_trade_no in notify callback")
+		_, _ = w.Write([]byte("fail"))
+		return
+	}
+
 	if err := client.VerifySign(r.Context(), r.Form); err != nil {
-		log.Printf("alipay notify verify failed: %v", err)
+		log.Printf("[Notify] Alipay notify signature verification failed: trade_no=%s, error=%v", outTradeNo, err)
 		_, _ = w.Write([]byte("fail"))
 		return
 	}
-	status := r.Form.Get("trade_status")
-	if status != "TRADE_SUCCESS" && status != "TRADE_FINISHED" {
+	log.Printf("[Notify] Signature verification passed: trade_no=%s", outTradeNo)
+
+	if tradeStatus != "TRADE_SUCCESS" && tradeStatus != "TRADE_FINISHED" {
+		log.Printf("[Notify] Trade is not successful yet: trade_no=%s, trade_status=%s", outTradeNo, tradeStatus)
 		_, _ = w.Write([]byte("success"))
 		return
 	}
-	if err := notifyOverseas(r.Context(), cfg, settleFromValues(r.Form, status)); err != nil {
-		log.Printf("overseas settle failed trade_no=%s error=%v", r.Form.Get("out_trade_no"), err)
+	log.Printf("[Notify] Triggering settlement sync to main server: trade_no=%s", outTradeNo)
+	if err := notifyOverseas(r.Context(), cfg, settleFromValues(r.Form, tradeStatus)); err != nil {
+		log.Printf("[Notify] Overseas settle sync failed: trade_no=%s, error=%v", outTradeNo, err)
 		_, _ = w.Write([]byte("fail"))
 		return
 	}
+	log.Printf("[Notify] Overseas settle sync succeeded! Completed order: trade_no=%s", outTradeNo)
 	_, _ = w.Write([]byte("success"))
 }
 
 func handleReturn(w http.ResponseWriter, r *http.Request, cfg config, client *alipay.Client) {
 	values := r.URL.Query()
+	outTradeNo := values.Get("out_trade_no")
+	tradeStatus := values.Get("trade_status")
+	totalAmount := values.Get("total_amount")
+	log.Printf("[Return] User redirected back to return page: trade_no=%s, trade_status=%s, total_amount=%s", outTradeNo, tradeStatus, totalAmount)
+
 	redirectURL := cfg.ReturnFailURL
-	if err := client.VerifySign(r.Context(), values); err != nil {
-		log.Printf("alipay return verify failed: %v", err)
+	if outTradeNo == "" {
+		log.Printf("[Return] Empty out_trade_no in return parameters, redirecting to fail URL")
 		http.Redirect(w, r, redirectURL, http.StatusFound)
 		return
 	}
-	status := values.Get("trade_status")
-	if status == "" {
-		status = "TRADE_SUCCESS"
+
+	if err := client.VerifySign(r.Context(), values); err != nil {
+		log.Printf("[Return] Alipay return signature verification failed: trade_no=%s, error=%v", outTradeNo, err)
+		http.Redirect(w, r, redirectURL, http.StatusFound)
+		return
 	}
-	if status == "TRADE_SUCCESS" || status == "TRADE_FINISHED" {
-		if err := notifyOverseas(r.Context(), cfg, settleFromValues(values, status)); err != nil {
-			log.Printf("overseas return settle failed trade_no=%s error=%v", values.Get("out_trade_no"), err)
+	log.Printf("[Return] Signature verification passed: trade_no=%s", outTradeNo)
+
+	if tradeStatus == "" {
+		tradeStatus = "TRADE_SUCCESS"
+	}
+	if tradeStatus == "TRADE_SUCCESS" || tradeStatus == "TRADE_FINISHED" {
+		log.Printf("[Return] Triggering settlement sync to main server: trade_no=%s", outTradeNo)
+		if err := notifyOverseas(r.Context(), cfg, settleFromValues(values, tradeStatus)); err != nil {
+			log.Printf("[Return] Overseas settle sync failed: trade_no=%s, error=%v", outTradeNo, err)
 		} else {
+			log.Printf("[Return] Overseas settle sync succeeded! Completed order: trade_no=%s", outTradeNo)
 			redirectURL = cfg.ReturnSuccessURL
 		}
 	}
 	if redirectURL == "" {
 		redirectURL = "/"
 	}
+	log.Printf("[Return] Redirecting user back to console: target=%s", redirectURL)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
@@ -327,6 +371,8 @@ func notifyOverseas(ctx context.Context, cfg config, payload settleRequest) erro
 	if err != nil {
 		return err
 	}
+	log.Printf("[Settle] Sending settle sync request: url=%s, trade_no=%s, total_amount=%s", cfg.OverseasSettleURL, payload.TradeNo, payload.TotalAmount)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.OverseasSettleURL, bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -336,7 +382,18 @@ func notifyOverseas(ctx context.Context, cfg config, payload settleRequest) erro
 	req.Header.Set(alipaybridge.HeaderNonce, nonce)
 	req.Header.Set(alipaybridge.HeaderSignature, signature)
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	var transport *http.Transport
+	if getenvBool("ALIPAY_BRIDGE_SKIP_TLS_VERIFY", false) {
+		transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		log.Printf("[Settle] Warning: TLS verification is skipped for overseas settlement sync")
+	}
+
+	client := &http.Client{
+		Timeout:   15 * time.Second,
+		Transport: transport,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -345,6 +402,7 @@ func notifyOverseas(ctx context.Context, cfg config, payload settleRequest) erro
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("settle returned status %d", resp.StatusCode)
 	}
+	log.Printf("[Settle] Settle sync request accepted by main server: status=%d", resp.StatusCode)
 	return nil
 }
 

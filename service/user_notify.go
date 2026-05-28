@@ -112,6 +112,7 @@ func sendEmailNotify(userEmail string, data dto.Notify) error {
 	for _, value := range data.Values {
 		content = strings.Replace(content, dto.ContentValueParam, fmt.Sprintf("%v", value), 1)
 	}
+	content = common.RenderEmailNoticeTemplate(data.Title, content, "", "")
 	return common.SendEmail(data.Title, userEmail, content)
 }
 

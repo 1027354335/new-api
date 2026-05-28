@@ -181,6 +181,15 @@ export function InvoiceManagement() {
     setViewDialogOpen(true)
   }
 
+  const handleDownloadInvoice = useCallback((invoice: InvoiceRecord) => {
+    if (!invoice.download_url) return
+    if (invoice.download_url.startsWith('http')) {
+      window.open(invoice.download_url, '_blank')
+      return
+    }
+    downloadInvoiceFile(invoice.id)
+  }, [])
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
@@ -291,6 +300,10 @@ export function InvoiceManagement() {
             </div>
           )
         },
+        meta: {
+          label: t('User'),
+          mobileTitle: true,
+        },
       },
       {
         id: 'order',
@@ -322,6 +335,9 @@ export function InvoiceManagement() {
             </div>
           )
         },
+        meta: {
+          label: t('Order Details'),
+        },
       },
       {
         id: 'invoice',
@@ -348,6 +364,9 @@ export function InvoiceManagement() {
               </div>
             </div>
           )
+        },
+        meta: {
+          label: t('Invoice Info'),
         },
       },
       {
@@ -389,6 +408,10 @@ export function InvoiceManagement() {
             </div>
           )
         },
+        meta: {
+          label: t('Status'),
+          mobileBadge: true,
+        },
       },
       {
         accessorKey: 'create_time',
@@ -400,6 +423,9 @@ export function InvoiceManagement() {
             {formatTimestamp(row.original.create_time)}
           </span>
         ),
+        meta: {
+          label: t('Request Time'),
+        },
       },
       {
         id: 'actions',
@@ -424,13 +450,7 @@ export function InvoiceManagement() {
                 <Button
                   variant='outline'
                   size='sm'
-                  onClick={() => {
-                    if (invoice.download_url.startsWith('http')) {
-                      window.open(invoice.download_url, '_blank')
-                      return
-                    }
-                    downloadInvoiceFile(invoice.id)
-                  }}
+                  onClick={() => handleDownloadInvoice(invoice)}
                 >
                   <Download className='mr-1 h-3.5 w-3.5' />
                   {t('Download')}
@@ -441,7 +461,7 @@ export function InvoiceManagement() {
         },
       },
     ],
-    [t]
+    [handleDownloadInvoice, t]
   )
 
   const table = useReactTable({
@@ -465,24 +485,22 @@ export function InvoiceManagement() {
   })
 
   return (
-    <div className='flex flex-col gap-4 p-6'>
-      <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>
+    <div className='flex flex-col gap-4 p-4 sm:p-6'>
+      <div>
+        <div className='flex items-center justify-between gap-3'>
+          <h1 className='truncate text-base font-bold tracking-tight sm:text-lg'>
             {t('Invoice Management')}
           </h1>
-          <p className='text-muted-foreground text-sm'>
-            {t('Manage user invoice requests and bill generation')}
-          </p>
+          <Button
+            variant='outline'
+            size='icon'
+            className='shrink-0'
+            onClick={fetchInvoices}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
-        <Button
-          variant='outline'
-          size='icon'
-          onClick={fetchInvoices}
-          disabled={loading}
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
       </div>
 
       <DataTablePage
@@ -637,6 +655,12 @@ export function InvoiceManagement() {
                         {t('Street')}
                       </Label>
                       <div>{selectedInvoice.street || '-'}</div>
+                    </div>
+                    <div>
+                      <Label className='text-muted-foreground'>
+                        {t('Detailed Address')}
+                      </Label>
+                      <div>{selectedInvoice.address_detail || '-'}</div>
                     </div>
                     <div>
                       <Label className='text-muted-foreground'>
@@ -920,6 +944,12 @@ export function InvoiceManagement() {
                     </div>
                     <div>
                       <span className='text-muted-foreground block text-[10px]'>
+                        {t('Detailed Address')}
+                      </span>
+                      <span>{selectedInvoice.address_detail || '-'}</span>
+                    </div>
+                    <div>
+                      <span className='text-muted-foreground block text-[10px]'>
                         {t('City')}
                       </span>
                       <span>{selectedInvoice.city || '-'}</span>
@@ -950,13 +980,7 @@ export function InvoiceManagement() {
                       variant='outline'
                       size='sm'
                       className='mt-1'
-                      onClick={() => {
-                        if (selectedInvoice.download_url.startsWith('http')) {
-                          window.open(selectedInvoice.download_url, '_blank')
-                          return
-                        }
-                        downloadInvoiceFile(selectedInvoice.id)
-                      }}
+                      onClick={() => handleDownloadInvoice(selectedInvoice)}
                     >
                       <Download className='mr-1 h-3.5 w-3.5' />
                       {t('Download Generated Invoice')}

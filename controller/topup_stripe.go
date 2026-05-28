@@ -31,6 +31,8 @@ type StripePayRequest struct {
 	Amount int64 `json:"amount"`
 	// PaymentMethod specifies the payment method (e.g., "stripe").
 	PaymentMethod string `json:"payment_method"`
+	// AgreementLanguage is the UI language used when the user accepted the payment agreement.
+	AgreementLanguage string `json:"agreement_language,omitempty"`
 	// SuccessURL is the optional custom URL to redirect after successful payment.
 	// If empty, defaults to the server's console log page.
 	SuccessURL string `json:"success_url,omitempty"`
@@ -100,14 +102,15 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 	}
 
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          req.Amount,
-		Money:           chargedMoney,
-		TradeNo:         referenceId,
-		PaymentMethod:   model.PaymentMethodStripe,
-		PaymentProvider: model.PaymentProviderStripe,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:            id,
+		Amount:            req.Amount,
+		Money:             chargedMoney,
+		TradeNo:           referenceId,
+		PaymentMethod:     model.PaymentMethodStripe,
+		PaymentProvider:   model.PaymentProviderStripe,
+		CreateTime:        time.Now().Unix(),
+		Status:            common.TopUpStatusPending,
+		AgreementLanguage: normalizeAgreementLanguage(req.AgreementLanguage),
 	}
 	err = topUp.Insert()
 	if err != nil {

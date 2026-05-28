@@ -20,6 +20,7 @@ import { useState, useCallback } from 'react'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 import { requestCreemPayment, isApiSuccess } from '../api'
+import { getCurrentAgreementLanguage } from '../lib'
 
 /**
  * Hook for handling Creem payment processing
@@ -33,6 +34,7 @@ export function useCreemPayment() {
       const response = await requestCreemPayment({
         product_id: productId,
         payment_method: 'creem',
+        agreement_language: getCurrentAgreementLanguage(),
       })
 
       if (isApiSuccess(response) && response.data?.checkout_url) {

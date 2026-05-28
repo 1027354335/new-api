@@ -24,6 +24,7 @@ type Invoice struct {
 	TaxId           string  `json:"tax_id" gorm:"type:varchar(100)"`
 	Email           string  `json:"email" gorm:"type:varchar(255)"`
 	Street          string  `json:"street" gorm:"type:varchar(255)"`
+	AddressDetail   string  `json:"address_detail" gorm:"type:varchar(255)"`
 	City            string  `json:"city" gorm:"type:varchar(100)"`
 	ZipCode         string  `json:"zip_code" gorm:"type:varchar(20)"`
 	Country         string  `json:"country" gorm:"type:varchar(100)"`

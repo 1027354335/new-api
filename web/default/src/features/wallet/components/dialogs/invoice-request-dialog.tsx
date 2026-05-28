@@ -20,7 +20,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import { type Resolver, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, WalletCards } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -50,6 +50,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Popover,
   PopoverContent,
@@ -63,8 +64,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { applyInvoice, isApiSuccess } from '../../api'
-import type { TopupRecord } from '../../types'
+import { applyInvoice, getInvoiceTitleCards, isApiSuccess } from '../../api'
+import type { InvoiceTitleCard, TopupRecord } from '../../types'
 
 // ============================================================================
 // Invoice Request Form Schema
@@ -76,12 +77,25 @@ type InvoiceFormValues = {
   tax_id?: string
   email: string
   street?: string
+  address_detail?: string
   city?: string
   zip_code?: string
   country?: string
 }
 
-const COUNTRY_OPTIONS = [
+const emptyInvoiceFormValues: InvoiceFormValues = {
+  billing_type: 'personal',
+  title: '',
+  tax_id: '',
+  email: '',
+  street: '',
+  address_detail: '',
+  city: '',
+  zip_code: '',
+  country: '',
+}
+
+export const COUNTRY_OPTIONS = [
   { code: 'AD', name: 'Andorra' },
   { code: 'AE', name: 'United Arab Emirates' },
   { code: 'AF', name: 'Afghanistan' },
@@ -283,6 +297,7 @@ const createInvoiceFormSchema = (
       tax_id: z.string().optional(),
       email: z.string().trim().email(translate('Please enter a valid email')),
       street: z.string().optional(),
+      address_detail: z.string().optional(),
       city: z.string().optional(),
       zip_code: z.string().optional(),
       country: z.string().optional(),
@@ -342,6 +357,8 @@ export function InvoiceRequestDialog({
   const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
   const [countryOpen, setCountryOpen] = useState(false)
+  const [titleCards, setTitleCards] = useState<InvoiceTitleCard[]>([])
+  const [selectedTitleCardId, setSelectedTitleCardId] = useState<string>('none')
 
   const isPayPal = topupRecord.payment_method === 'paypal'
   const invoiceFormSchema = useMemo(
@@ -353,33 +370,42 @@ export function InvoiceRequestDialog({
     resolver: zodResolver(
       invoiceFormSchema
     ) as unknown as Resolver<InvoiceFormValues>,
-    defaultValues: {
-      billing_type: 'personal',
-      title: '',
-      tax_id: '',
-      email: '',
-      street: '',
-      city: '',
-      zip_code: '',
-      country: '',
-    },
+    defaultValues: emptyInvoiceFormValues,
   })
 
   const billingType = form.watch('billing_type')
 
+  const applyTitleCard = (card: InvoiceTitleCard) => {
+    form.reset({
+      billing_type: card.billing_type,
+      title: card.title,
+      tax_id: card.tax_id,
+      email: card.email,
+      street: card.street,
+      address_detail: card.address_detail || '',
+      city: card.city,
+      zip_code: card.zip_code,
+      country: card.country,
+    })
+  }
+
   useEffect(() => {
     if (open) {
       setCountryOpen(false)
-      form.reset({
-        billing_type: 'personal',
-        title: '',
-        tax_id: '',
-        email: '',
-        street: '',
-        city: '',
-        zip_code: '',
-        country: '',
-      })
+      setSelectedTitleCardId('none')
+      form.reset(emptyInvoiceFormValues)
+      getInvoiceTitleCards()
+        .then((response) => {
+          if (!isApiSuccess(response)) return
+          const cards = response.data || []
+          setTitleCards(cards)
+          const defaultCard = cards.find((card) => card.is_default)
+          if (defaultCard) {
+            setSelectedTitleCardId(String(defaultCard.id))
+            applyTitleCard(defaultCard)
+          }
+        })
+        .catch(() => setTitleCards([]))
     }
   }, [open, form])
 
@@ -393,6 +419,7 @@ export function InvoiceRequestDialog({
         tax_id: values.tax_id || undefined,
         email: values.email,
         street: values.street || undefined,
+        address_detail: values.address_detail || undefined,
         city: values.city || undefined,
         zip_code: values.zip_code || undefined,
         country: values.country || undefined,
@@ -427,6 +454,51 @@ export function InvoiceRequestDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
+            {titleCards.length > 0 && (
+              <div className='space-y-2 rounded-lg border p-3'>
+                <Label className='flex items-center gap-1.5 text-sm'>
+                  <WalletCards className='h-4 w-4' />
+                  {t('Invoice Title Card')}
+                </Label>
+                <Select
+                  items={[
+                    { value: 'none', label: t('Do not use a title card') },
+                    ...titleCards.map((card) => ({
+                      value: String(card.id),
+                      label: card.name,
+                    })),
+                  ]}
+                  value={selectedTitleCardId}
+                  onValueChange={(value) => {
+                    const nextValue = value || 'none'
+                    setSelectedTitleCardId(nextValue)
+                    const card = titleCards.find(
+                      (item) => String(item.id) === nextValue
+                    )
+                    if (card) applyTitleCard(card)
+                    else form.reset(emptyInvoiceFormValues)
+                  }}
+                >
+                  <SelectTrigger className='w-full'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      <SelectItem value='none'>
+                        {t('Do not use a title card')}
+                      </SelectItem>
+                      {titleCards.map((card) => (
+                        <SelectItem key={card.id} value={String(card.id)}>
+                          {card.name}
+                          {card.is_default ? ` (${t('Default')})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Billing Type */}
             <FormField
               control={form.control}
@@ -535,6 +607,23 @@ export function InvoiceRequestDialog({
                       <FormControl>
                         <Input
                           placeholder={t('Enter street address')}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='address_detail'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Detailed Address')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t('Enter detailed address')}
                           {...field}
                         />
                       </FormControl>

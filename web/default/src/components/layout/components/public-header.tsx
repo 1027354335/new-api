@@ -303,10 +303,21 @@ export function PublicHeader(props: PublicHeaderProps) {
             </div>
 
             {/* Mobile: compact actions + hamburger */}
-            <div className='flex items-center gap-2 sm:hidden'>
-              {showThemeSwitch && <ThemeSwitch />}
+            <div className='flex items-center gap-1 sm:hidden'>
+              {showLanguageSwitcher && (
+                <div className='flex size-9 items-center justify-center'>
+                  <LanguageSwitcher />
+                </div>
+              )}
+              {showThemeSwitch && (
+                <div className='flex size-9 items-center justify-center'>
+                  <ThemeSwitch />
+                </div>
+              )}
               {showAuthButtons && !loading && isAuthenticated && (
-                <ProfileDropdown />
+                <div className='flex size-9 items-center justify-center'>
+                  <ProfileDropdown />
+                </div>
               )}
               <Button
                 type='button'

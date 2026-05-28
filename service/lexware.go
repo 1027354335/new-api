@@ -54,13 +54,17 @@ func createLexwareInvoice(inv *model.Invoice) (string, error) {
 	taxConditions := map[string]string{
 		"taxType": "gross",
 	}
+	street := strings.TrimSpace(strings.Join([]string{
+		strings.TrimSpace(inv.Street),
+		strings.TrimSpace(inv.AddressDetail),
+	}, " "))
 
 	payload := map[string]any{
 		"archived":    false,
 		"voucherDate": time.Now().Format("2006-01-02T15:04:05.000Z07:00"),
 		"address": map[string]string{
 			"name":        inv.Title,
-			"street":      inv.Street,
+			"street":      street,
 			"city":        inv.City,
 			"zip":         inv.ZipCode,
 			"countryCode": strings.ToUpper(strings.TrimSpace(inv.Country)),

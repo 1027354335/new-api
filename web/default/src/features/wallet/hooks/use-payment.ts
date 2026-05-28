@@ -38,6 +38,7 @@ import {
   isAlipayPayment,
   isWaffoPancakePayment,
   submitPaymentForm,
+  getCurrentAgreementLanguage,
 } from '../lib'
 import type { PaymentAmountQuote } from '../types'
 
@@ -133,25 +134,30 @@ export function usePayment() {
         const isPayPal = isPayPalPayment(paymentType)
         const isAlipay = isAlipayPayment(paymentType, enableAlipayTopup)
         const amount = Math.floor(topupAmount)
+        const agreementLanguage = getCurrentAgreementLanguage()
 
         const response = isStripe
           ? await requestStripePayment({
               amount,
               payment_method: 'stripe',
+              agreement_language: agreementLanguage,
             })
           : isPayPal
             ? await requestPayPalPayment({
                 amount,
                 payment_method: 'paypal',
+                agreement_language: agreementLanguage,
               })
             : isAlipay
               ? await requestAlipayPayment({
                   amount,
                   payment_method: 'alipay',
+                  agreement_language: agreementLanguage,
                 })
               : await requestPayment({
                   amount,
                   payment_method: paymentType,
+                  agreement_language: agreementLanguage,
                 })
 
         if (!isApiSuccess(response)) {

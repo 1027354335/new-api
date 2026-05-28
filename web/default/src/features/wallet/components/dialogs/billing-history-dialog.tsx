@@ -26,6 +26,7 @@ import {
   FileText,
   Download,
   AlertCircle,
+  WalletCards,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyFromUSD } from '@/lib/currency'
@@ -68,7 +69,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useBillingHistory } from '../../hooks/use-billing-history'
-import { downloadInvoiceFile, getMyInvoices, getAdminInvoices, isApiSuccess } from '../../api'
+import { downloadInvoiceFile, downloadAgreementFile, getMyInvoices, getAdminInvoices, isApiSuccess } from '../../api'
 import type { InvoiceRecord, TopupRecord } from '../../types'
 import {
   getStatusConfig,
@@ -77,6 +78,7 @@ import {
   formatTimestamp,
 } from '../../lib/billing'
 import { InvoiceRequestDialog } from './invoice-request-dialog'
+import { InvoiceTitleManagementDialog } from './invoice-title-management-dialog'
 
 interface BillingHistoryDialogProps {
   open: boolean
@@ -87,7 +89,8 @@ export function BillingHistoryDialog({
   open,
   onOpenChange,
 }: BillingHistoryDialogProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const currentLang = (i18n.language || 'en').toLowerCase().split('-')[0]
   const {
     records,
     total,
@@ -111,6 +114,7 @@ export function BillingHistoryDialog({
     Record<string, InvoiceRecord>
   >({})
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [titleManagementOpen, setTitleManagementOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState<TopupRecord | null>(
     null
   )
@@ -186,6 +190,16 @@ export function BillingHistoryDialog({
                   className='h-9 pl-10'
                 />
               </div>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                className='h-9 whitespace-nowrap'
+                onClick={() => setTitleManagementOpen(true)}
+              >
+                <WalletCards className='mr-1.5 h-4 w-4' />
+                {t('Title Management')}
+              </Button>
               <Select
                 items={[
                   { value: '10', label: t('10 / page') },
@@ -330,6 +344,24 @@ export function BillingHistoryDialog({
                           const invoice = invoiceMap[record.trade_no]
                           return (
                             <div className='mt-3 flex items-center gap-2 border-t pt-3'>
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                onClick={() => downloadAgreementFile(record.id)}
+                              >
+                                <Download className='mr-1.5 h-3.5 w-3.5' />
+                                {currentLang === 'zh'
+                                  ? '下载电子协议'
+                                  : currentLang === 'ja'
+                                    ? '電子規約ダウンロード'
+                                    : currentLang === 'fr'
+                                      ? 'Télécharger l\'accord'
+                                      : currentLang === 'ru'
+                                        ? 'Скачать соглашение'
+                                        : currentLang === 'vi'
+                                          ? 'Tải thỏa thuận'
+                                          : 'Download Agreement'}
+                              </Button>
                               {!invoice && (
                                 <Button
                                   size='sm'
@@ -492,6 +524,11 @@ export function BillingHistoryDialog({
           onSuccess={handleInvoiceSuccess}
         />
       )}
+
+      <InvoiceTitleManagementDialog
+        open={titleManagementOpen}
+        onOpenChange={setTitleManagementOpen}
+      />
     </>
   )
 }

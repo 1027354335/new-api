@@ -26,8 +26,9 @@ import (
 )
 
 type AlipayPayRequest struct {
-	Amount        int64  `json:"amount"`
-	PaymentMethod string `json:"payment_method"`
+	Amount            int64  `json:"amount"`
+	PaymentMethod     string `json:"payment_method"`
+	AgreementLanguage string `json:"agreement_language,omitempty"`
 }
 
 type alipayBridgeCreateRequest struct {
@@ -288,7 +289,7 @@ func RequestAlipayPay(c *gin.Context) {
 		return
 	}
 	if !isAlipayTopUpEnabled() {
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "alipay is not configured"})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "该支付方式未配置完善"})
 		return
 	}
 	if req.Amount < getAlipayMinTopup() {
@@ -313,18 +314,19 @@ func RequestAlipayPay(c *gin.Context) {
 	}
 
 	topUp := &model.TopUp{
-		UserId:          id,
-		Amount:          amount,
-		Money:           payMoney,
-		CreditAmountUsd: creditAmountUSD,
-		PaidAmount:      payMoney,
-		PaidCurrency:    "CNY",
-		ExchangeRate:    exchangeRate,
-		TradeNo:         tradeNo,
-		PaymentMethod:   model.PaymentMethodAlipay,
-		PaymentProvider: model.PaymentProviderAlipay,
-		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		UserId:            id,
+		Amount:            amount,
+		Money:             payMoney,
+		CreditAmountUsd:   creditAmountUSD,
+		PaidAmount:        payMoney,
+		PaidCurrency:      "CNY",
+		ExchangeRate:      exchangeRate,
+		TradeNo:           tradeNo,
+		PaymentMethod:     model.PaymentMethodAlipay,
+		PaymentProvider:   model.PaymentProviderAlipay,
+		CreateTime:        time.Now().Unix(),
+		Status:            common.TopUpStatusPending,
+		AgreementLanguage: normalizeAgreementLanguage(req.AgreementLanguage),
 	}
 	if err := topUp.Insert(); err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Alipay create topup failed user_id=%d trade_no=%s amount=%d error=%q", id, tradeNo, req.Amount, err.Error()))

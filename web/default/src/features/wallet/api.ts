@@ -44,6 +44,8 @@ import type {
   InvoiceListResponse,
   CompleteInvoiceRequest,
   RejectInvoiceRequest,
+  InvoiceTitleCard,
+  InvoiceTitleCardRequest,
 } from './types'
 
 // ============================================================================
@@ -386,6 +388,68 @@ export async function downloadInvoiceFile(invoiceId: number): Promise<void> {
   link.click()
   link.remove()
   window.URL.revokeObjectURL(blobUrl)
+}
+
+/**
+ * Download an agreement PDF file.
+ */
+export async function downloadAgreementFile(topupId: number): Promise<void> {
+  const res = await api.get(`/api/user/topup/agreement/download?id=${topupId}`, {
+    responseType: 'blob',
+    disableDuplicate: true,
+  } as Record<string, unknown>)
+
+  const contentDisposition = res.headers['content-disposition']
+  const filenameMatch =
+    typeof contentDisposition === 'string'
+      ? contentDisposition.match(/filename="?([^";]+)"?/)
+      : null
+  const filename = filenameMatch?.[1] || `agreement_${topupId}.pdf`
+  const blobUrl = window.URL.createObjectURL(res.data)
+  const link = document.createElement('a')
+  link.href = blobUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(blobUrl)
+}
+
+export async function getInvoiceTitleCards(): Promise<
+  ApiResponse<InvoiceTitleCard[]>
+> {
+  const res = await api.get('/api/invoice/titles', {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function createInvoiceTitleCard(
+  data: InvoiceTitleCardRequest
+): Promise<ApiResponse<InvoiceTitleCard>> {
+  const res = await api.post('/api/invoice/titles', data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function updateInvoiceTitleCard(
+  id: number,
+  data: InvoiceTitleCardRequest
+): Promise<ApiResponse<InvoiceTitleCard>> {
+  const res = await api.put(`/api/invoice/titles/${id}`, data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function deleteInvoiceTitleCard(
+  id: number
+): Promise<ApiResponse<null>> {
+  const res = await api.delete(`/api/invoice/titles/${id}`, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
 }
 
 /**

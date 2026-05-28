@@ -112,6 +112,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/aff", controller.GetAffCode)
 				selfRoute.GET("/topup/info", controller.GetTopUpInfo)
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)
+				selfRoute.GET("/topup/agreement/download", controller.DownloadTopupAgreement)
 				selfRoute.POST("/topup", middleware.CriticalRateLimit(), controller.TopUp)
 				selfRoute.POST("/pay", middleware.CriticalRateLimit(), controller.RequestEpay)
 				selfRoute.POST("/amount", controller.RequestAmount)
@@ -175,6 +176,7 @@ func SetApiRouter(router *gin.Engine) {
 			subscriptionRoute.GET("/plans", controller.GetSubscriptionPlans)
 			subscriptionRoute.GET("/self", controller.GetSubscriptionSelf)
 			subscriptionRoute.PUT("/self/preference", controller.UpdateSubscriptionPreference)
+			subscriptionRoute.POST("/balance/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestBalancePay)
 			subscriptionRoute.POST("/epay/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestEpay)
 			subscriptionRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestStripePay)
 			subscriptionRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestCreemPay)
@@ -209,6 +211,10 @@ func SetApiRouter(router *gin.Engine) {
 			userInvoiceRoute.POST("/request", controller.ApplyInvoice)
 			userInvoiceRoute.GET("/my", controller.GetMyInvoices)
 			userInvoiceRoute.GET("/download", controller.DownloadInvoiceFile)
+			userInvoiceRoute.GET("/titles", controller.ListInvoiceTitles)
+			userInvoiceRoute.POST("/titles", controller.CreateInvoiceTitle)
+			userInvoiceRoute.PUT("/titles/:id", controller.UpdateInvoiceTitle)
+			userInvoiceRoute.DELETE("/titles/:id", controller.DeleteInvoiceTitle)
 		}
 
 		// Invoice routes (admin)

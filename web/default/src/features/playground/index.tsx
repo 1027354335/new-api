@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { nanoid } from 'nanoid'
 import { toast } from 'sonner'
@@ -32,7 +32,8 @@ import { PlaygroundChat } from './components/playground-chat'
 import { PlaygroundInput } from './components/playground-input'
 import { PlaygroundSessions } from './components/playground-sessions'
 import { PlaygroundSettings } from './components/playground-settings'
-import { usePlaygroundState, useChatHandler } from './hooks'
+import { usePlaygroundState, useChatHandler, useKeyboardShortcuts } from './hooks'
+import { PlaygroundNavigationGuard } from './components/playground-navigation-guard'
 import {
   buildFileInstruction,
   createGeneratedFileFromAssistant,
@@ -40,6 +41,7 @@ import {
   createLoadingAssistantMessage,
   createImageAssistantMessage,
   detectFileGenerationRequest,
+  getExpiredSessionIds,
 } from './lib'
 import type {
   GeneratedImage,
@@ -220,12 +222,32 @@ export function Playground() {
     onAssistantComplete: handleAssistantComplete,
   })
 
+  const [showSessions, setShowSessions] = useState(true)
+  const [showSettings, setShowSettings] = useState(true)
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
+
+  useKeyboardShortcuts({
+    onNewSession: () => createSession(),
+    onToggleSessions: () => setShowSessions((prev) => !prev),
+    onToggleSettings: () => setShowSettings((prev) => !prev),
+    onClearChat: () => updateMessages([]),
+    onStopGeneration: () => {
+      if (config.mode === 'chat') {
+        stopGeneration()
+      }
+    },
+    onFocusInput: () => {
+      inputRef.current?.focus()
+    },
+    isGenerating: isGenerating || isGeneratingImage,
+  })
+
   // Edit dialog state
   const [editingMessageKey, setEditingMessageKey] = useState<string | null>(
     null
   )
   const selectedImageUrl = selectedImage?.url ?? null
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
 
   // Load models
   const { data: modelsData, isLoading: isLoadingModels } = useQuery({
@@ -271,6 +293,33 @@ export function Playground() {
       replaceSessions(sessionsData)
     }
   }, [replaceSessions, sessionsData])
+
+  useEffect(() => {
+    if (sessions.length > 0) {
+      const expiredIds = getExpiredSessionIds(sessions, 30)
+      if (expiredIds.length > 0) {
+        const hashKey = `playground_cleanup_prompted:${currentUserId}`
+        if (!sessionStorage.getItem(hashKey)) {
+          sessionStorage.setItem(hashKey, 'true')
+          toast.info(
+            t('You have {{count}} conversations inactive for over 30 days. You can clear them to save local storage.', {
+              count: expiredIds.length,
+            }),
+            {
+              duration: 10000,
+              action: {
+                label: t('Clean Up'),
+                onClick: () => {
+                  expiredIds.forEach((id) => deleteSession(id))
+                  toast.success(t('Cleaned up {{count}} inactive conversations.', { count: expiredIds.length }))
+                },
+              },
+            }
+          )
+        }
+      }
+    }
+  }, [sessions, currentUserId, deleteSession, t])
 
   // Update models when data changes
   useEffect(() => {
@@ -591,13 +640,16 @@ export function Playground() {
 
   return (
     <div className='relative flex size-full overflow-hidden'>
-      <PlaygroundSessions
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        onCreateSession={createSession}
-        onSwitchSession={switchSession}
-        onDeleteSession={deleteSession}
-      />
+      {showSessions && (
+        <PlaygroundSessions
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onCreateSession={createSession}
+          onSwitchSession={switchSession}
+          onDeleteSession={deleteSession}
+          onImportSessions={replaceSessions}
+        />
+      )}
       {/* Full-width scroll container: scrolling works even over side whitespace */}
       <div className='flex min-w-0 flex-1 flex-col overflow-hidden'>
         <PlaygroundChat
@@ -632,16 +684,31 @@ export function Playground() {
             onModelChange={(value) => updateConfig('model', value)}
             onStop={config.mode === 'chat' ? stopGeneration : undefined}
             onSubmit={handleSendMessage}
+            hasMessages={messages.length > 0}
+            inputRef={inputRef}
           />
         </div>
       </div>
-      <PlaygroundSettings
-        config={config}
-        disabled={isGenerating || isGeneratingImage}
-        selectedImageUrl={selectedImageUrl}
-        onConfigChange={updateConfig}
-        onClearSelectedImage={() => updateSelectedImage(null)}
-        onSelectImage={updateSelectedImage}
+      {showSettings && (
+        <PlaygroundSettings
+          config={config}
+          disabled={isGenerating || isGeneratingImage}
+          selectedImageUrl={selectedImageUrl}
+          onConfigChange={updateConfig}
+          onClearSelectedImage={() => updateSelectedImage(null)}
+          onSelectImage={updateSelectedImage}
+        />
+      )}
+      <PlaygroundNavigationGuard
+        when={isGenerating || isGeneratingImage}
+        onProceed={() => {
+          if (config.mode === 'chat') {
+            stopGeneration()
+          }
+          if (isGeneratingImage) {
+            setIsGeneratingImage(false)
+          }
+        }}
       />
     </div>
   )

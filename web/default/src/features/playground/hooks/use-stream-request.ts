@@ -29,6 +29,13 @@ export function useStreamRequest() {
   const sseSourceRef = useRef<SSE | null>(null)
   const isStreamCompleteRef = useRef(false)
 
+  // Buffer and flags for requestAnimationFrame batching
+  const contentBufferRef = useRef('')
+  const reasoningBufferRef = useRef('')
+  const dirtyContentRef = useRef(false)
+  const dirtyReasoningRef = useRef(false)
+  const rafIdRef = useRef<number | null>(null)
+
   const sendStreamRequest = useCallback(
     (
       payload: ChatCompletionRequest,
@@ -45,21 +52,67 @@ export function useStreamRequest() {
       sseSourceRef.current = source
       isStreamCompleteRef.current = false
 
+      // Reset buffers and state
+      contentBufferRef.current = ''
+      reasoningBufferRef.current = ''
+      dirtyContentRef.current = false
+      dirtyReasoningRef.current = false
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+
       const closeSource = () => {
         source.close()
         sseSourceRef.current = null
       }
 
+      const flushPendingUpdates = () => {
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current)
+          rafIdRef.current = null
+        }
+        if (dirtyContentRef.current) {
+          onUpdate('content', contentBufferRef.current)
+          contentBufferRef.current = ''
+          dirtyContentRef.current = false
+        }
+        if (dirtyReasoningRef.current) {
+          onUpdate('reasoning', reasoningBufferRef.current)
+          reasoningBufferRef.current = ''
+          dirtyReasoningRef.current = false
+        }
+      }
+
       const handleError = (errorMessage: string, errorCode?: string) => {
         if (!isStreamCompleteRef.current) {
+          flushPendingUpdates()
           onError(errorMessage, errorCode)
           closeSource()
         }
       }
 
+      const scheduleFlush = () => {
+        if (rafIdRef.current !== null) return
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null
+          if (dirtyContentRef.current) {
+            onUpdate('content', contentBufferRef.current)
+            contentBufferRef.current = ''
+            dirtyContentRef.current = false
+          }
+          if (dirtyReasoningRef.current) {
+            onUpdate('reasoning', reasoningBufferRef.current)
+            reasoningBufferRef.current = ''
+            dirtyReasoningRef.current = false
+          }
+        })
+      }
+
       source.addEventListener('message', (e: MessageEvent) => {
         if (e.data === '[DONE]') {
           isStreamCompleteRef.current = true
+          flushPendingUpdates()
           closeSource()
           onComplete()
           return
@@ -71,10 +124,14 @@ export function useStreamRequest() {
 
           if (delta) {
             if (delta.reasoning_content) {
-              onUpdate('reasoning', delta.reasoning_content)
+              reasoningBufferRef.current += delta.reasoning_content
+              dirtyReasoningRef.current = true
+              scheduleFlush()
             }
             if (delta.content) {
-              onUpdate('content', delta.content)
+              contentBufferRef.current += delta.content
+              dirtyContentRef.current = true
+              scheduleFlush()
             }
           }
         } catch (error) {

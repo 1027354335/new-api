@@ -201,7 +201,7 @@ export function usePlaygroundState() {
       const existingTimer = pendingSyncTimersRef.current.get(sessionKey)
       if (existingTimer) clearTimeout(existingTimer)
 
-      const delay = hasInFlightMessage(session) ? 2500 : 400
+      const delay = hasInFlightMessage(session) ? 5000 : 400
       const timer = setTimeout(() => {
         pendingSyncTimersRef.current.delete(sessionKey)
         const latestSession =

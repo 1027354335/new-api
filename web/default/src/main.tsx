@@ -48,6 +48,66 @@ import './styles/index.css'
 initializeFrontendCache()
 installBuildMetadata()
 
+// Clipboard Polyfill for insecure context (HTTP) compatibility
+;(function initClipboardPolyfill() {
+  try {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      const clipboardPolyfill = {
+        writeText: async (text: string) => {
+          const textArea = document.createElement('textarea')
+          textArea.value = text
+          textArea.style.position = 'fixed'
+          textArea.style.left = '-999999px'
+          textArea.style.top = '-999999px'
+          textArea.style.opacity = '0'
+          textArea.setAttribute('readonly', '')
+          document.body.appendChild(textArea)
+          try {
+            textArea.focus()
+            textArea.select()
+            const range = document.createRange()
+            range.selectNodeContents(textArea)
+            const selection = window.getSelection()
+            if (selection) {
+              selection.removeAllRanges()
+              selection.addRange(range)
+            }
+            textArea.setSelectionRange(0, text.length)
+            const successful = document.execCommand('copy')
+            if (!successful) {
+              throw new Error('Copy command failed')
+            }
+          } finally {
+            document.body.removeChild(textArea)
+            const selectionAfter = window.getSelection()
+            if (selectionAfter) {
+              selectionAfter.removeAllRanges()
+            }
+          }
+        },
+      }
+
+      if (!navigator.clipboard) {
+        Object.defineProperty(navigator, 'clipboard', {
+          value: clipboardPolyfill,
+          writable: true,
+          configurable: true,
+        })
+      } else if (!navigator.clipboard.writeText) {
+        Object.defineProperty(navigator.clipboard, 'writeText', {
+          value: clipboardPolyfill.writeText,
+          writable: true,
+          configurable: true,
+        })
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Failed to initialize clipboard polyfill:', err)
+  }
+})()
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

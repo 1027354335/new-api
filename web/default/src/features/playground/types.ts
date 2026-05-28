@@ -67,6 +67,7 @@ export interface PlaygroundAttachment {
   name?: string
   mediaType?: string
   textContent?: string
+  thumbnailUrl?: string
 }
 
 export interface ChatCompletionRequest {

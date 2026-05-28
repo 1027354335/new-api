@@ -33,6 +33,19 @@ export const MAX_PERSISTED_SESSION_BYTES = 1_800_000
 const MAX_PERSISTED_MESSAGE_TEXT = 120_000
 const MAX_PERSISTED_ATTACHMENT_TEXT = 20_000
 
+let isStreamingActive = false
+let pendingSessionsWrite: PlaygroundSession[] | null = null
+
+export function setStreamingActive(active: boolean) {
+  isStreamingActive = active
+  if (!active) {
+    if (pendingSessionsWrite) {
+      saveSessions(pendingSessionsWrite)
+      pendingSessionsWrite = null
+    }
+  }
+}
+
 function getCurrentStorageUserId() {
   try {
     if (typeof window === 'undefined') return 'anonymous'
@@ -197,7 +210,19 @@ function stripStoredFile(file?: GeneratedFile | null) {
 function stripStoredAttachment(
   attachment: NonNullable<Message['attachments']>[number]
 ): PlaygroundAttachment | null {
-  if (isInlineImageUrl(attachment.url)) return null
+  if (
+    isInlineImageUrl(attachment.url) ||
+    attachment.url.startsWith('blob:') ||
+    attachment.mediaType?.startsWith('image/')
+  ) {
+    if (attachment.thumbnailUrl) {
+      return {
+        ...attachment,
+        url: attachment.thumbnailUrl,
+      }
+    }
+    return null
+  }
   const trimmed: PlaygroundAttachment = {
     ...attachment,
   }
@@ -335,6 +360,10 @@ export function loadSessions(): PlaygroundSession[] {
 }
 
 export function saveSessions(sessions: PlaygroundSession[]): void {
+  if (isStreamingActive) {
+    pendingSessionsWrite = sessions
+    return
+  }
   try {
     localStorage.setItem(
       getScopedStorageKey(STORAGE_KEYS.SESSIONS),
@@ -392,4 +421,12 @@ export function clearPlaygroundData(): void {
     // eslint-disable-next-line no-console
     console.error('Failed to clear playground data:', error)
   }
+}
+
+/**
+ * Get expired sessions (older than specified days)
+ */
+export function getExpiredSessionIds(sessions: PlaygroundSession[], days = 30): string[] {
+  const cutoff = Date.now() - days * 86400000
+  return sessions.filter((s) => (s.updatedAt || s.createdAt) < cutoff).map((s) => s.id)
 }

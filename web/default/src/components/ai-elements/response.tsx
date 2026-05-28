@@ -22,10 +22,12 @@ import { type ComponentProps, memo } from 'react'
 import { Streamdown } from 'streamdown'
 import { cn } from '@/lib/utils'
 
-type ResponseProps = ComponentProps<typeof Streamdown>
+type ResponseProps = ComponentProps<typeof Streamdown> & {
+  isStreaming?: boolean
+}
 
 export const Response = memo(
-  ({ className, children, ...props }: ResponseProps) => {
+  ({ className, children, isStreaming, ...props }: ResponseProps) => {
     const stripCustomTags = (input: unknown): unknown => {
       if (typeof input !== 'string') return input
       return (
@@ -42,6 +44,20 @@ export const Response = memo(
 
     const safeChildren = stripCustomTags(children) as string
 
+    if (isStreaming) {
+      return (
+        <div
+          className={cn(
+            'size-full whitespace-pre-wrap break-words prose prose-sm dark:prose-invert max-w-none font-sans',
+            className
+          )}
+        >
+          {safeChildren}
+          <span className='inline-block text-primary/80 animate-pulse ml-0.5 select-none'>▌</span>
+        </div>
+      )
+    }
+
     return (
       <Streamdown
         className={cn(
@@ -54,7 +70,8 @@ export const Response = memo(
       </Streamdown>
     )
   },
-  (prevProps, nextProps) => prevProps.children === nextProps.children
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children && prevProps.isStreaming === nextProps.isStreaming
 )
 
 Response.displayName = 'Response'

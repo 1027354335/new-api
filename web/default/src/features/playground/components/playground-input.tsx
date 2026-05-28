@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import {
   PaperclipIcon,
   FileIcon,
@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +74,31 @@ interface PlaygroundInputProps {
   groups: GroupOption[]
   groupValue: string
   onGroupChange: (value: string) => void
+  hasMessages?: boolean
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>
+}
+
+function compressImageToThumbnail(dataUrl: string, maxDim = 100): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const ratio = Math.min(maxDim / img.width, maxDim / img.height, 1)
+      canvas.width = img.width * ratio
+      canvas.height = img.height * ratio
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.6))
+      } else {
+        resolve(dataUrl)
+      }
+    }
+    img.onerror = () => {
+      resolve(dataUrl)
+    }
+    img.src = dataUrl
+  })
 }
 
 const suggestions = [
@@ -90,13 +116,24 @@ async function filePartsToAttachments(
   return Promise.all(
     files
       .filter((file) => !!file.url)
-      .map(async (file) => ({
-        id: 'id' in file && typeof file.id === 'string' ? file.id : file.url!,
-        url: file.url!,
-        name: file.filename,
-        mediaType: file.mediaType,
-        textContent: await extractAttachmentText(file),
-      }))
+      .map(async (file) => {
+        let thumbnailUrl: string | undefined
+        if (file.mediaType?.startsWith('image/') && file.url) {
+          try {
+            thumbnailUrl = await compressImageToThumbnail(file.url)
+          } catch {
+            // ignore
+          }
+        }
+        return {
+          id: 'id' in file && typeof file.id === 'string' ? file.id : file.url!,
+          url: file.url!,
+          name: file.filename,
+          mediaType: file.mediaType,
+          textContent: await extractAttachmentText(file),
+          thumbnailUrl,
+        }
+      })
   )
 }
 
@@ -239,20 +276,49 @@ export function PlaygroundInput({
   groups,
   groupValue,
   onGroupChange,
+  hasMessages = false,
+  inputRef,
 }: PlaygroundInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
+  const [isParsing, setIsParsing] = useState(false)
+  const historyIndexRef = useRef(-1)
 
+  const isInputDisabled = disabled || isParsing
   const isModelSelectDisabled =
-    disabled || isModelLoading || models.length === 0
-  const isGroupSelectDisabled = disabled || groups.length === 0
+    isInputDisabled || isModelLoading || models.length === 0
+  const isGroupSelectDisabled = isInputDisabled || groups.length === 0
+
+  const estimatedTokens = useMemo(() => {
+    if (!text.trim()) return 0
+    const cjk = (text.match(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]/g) || []).length
+    return Math.ceil((text.length - cjk) / 4 + cjk / 2)
+  }, [text])
 
   const handleSubmit = async (message: PromptInputMessage) => {
-    const attachments = await filePartsToAttachments(message.files)
-    if ((!message.text?.trim() && attachments.length === 0) || disabled) return
-    const result = onSubmit(message.text ?? '', attachments)
-    setText('')
-    return result
+    setIsParsing(true)
+    try {
+      const attachments = await filePartsToAttachments(message.files)
+      if ((!message.text?.trim() && attachments.length === 0) || isInputDisabled) return
+
+      // Save user message to history
+      if (message.text?.trim()) {
+        const textVal = message.text.trim()
+        try {
+          const savedHistory = JSON.parse(localStorage.getItem('playground_msg_history') || '[]')
+          const updated = [textVal, ...savedHistory.filter((m: string) => m !== textVal)].slice(0, 20)
+          localStorage.setItem('playground_msg_history', JSON.stringify(updated))
+        } catch {
+          // ignore
+        }
+      }
+
+      const result = await onSubmit(message.text ?? '', attachments)
+      setText('')
+      return result
+    } finally {
+      setIsParsing(false)
+    }
   }
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -272,15 +338,53 @@ export function PlaygroundInput({
           <PromptInputAttachments>
             {(attachment) => <PromptInputAttachment data={attachment} />}
           </PromptInputAttachments>
+          {isParsing && (
+            <div className='flex items-center space-x-2 p-1.5 bg-muted/40 border border-border/50 rounded-md animate-pulse text-xs text-muted-foreground select-none'>
+              <div className='w-2 h-2 rounded-full bg-primary animate-ping' />
+              <span>{t('Extracting attachments...')}</span>
+            </div>
+          )}
         </div>
         <PromptInputTextarea
+          ref={inputRef}
           autoComplete='off'
           autoCorrect='off'
           autoCapitalize='off'
           spellCheck={false}
           className='px-5 md:text-base'
-          disabled={disabled}
-          onChange={(event) => setText(event.target.value)}
+          disabled={isInputDisabled}
+          onChange={(event) => {
+            setText(event.target.value)
+            historyIndexRef.current = -1
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp' && !text.trim()) {
+              e.preventDefault()
+              try {
+                const history = JSON.parse(localStorage.getItem('playground_msg_history') || '[]')
+                if (history.length > 0) {
+                  historyIndexRef.current = Math.min(historyIndexRef.current + 1, history.length - 1)
+                  const histVal = history[historyIndexRef.current]
+                  if (histVal) setText(histVal)
+                }
+              } catch {
+                // ignore
+              }
+            } else if (e.key === 'ArrowDown' && historyIndexRef.current >= 0) {
+              e.preventDefault()
+              try {
+                const history = JSON.parse(localStorage.getItem('playground_msg_history') || '[]')
+                historyIndexRef.current -= 1
+                if (historyIndexRef.current >= 0) {
+                  setText(history[historyIndexRef.current])
+                } else {
+                  setText('')
+                }
+              } catch {
+                // ignore
+              }
+            }
+          }}
           placeholder={
             isImageMode
               ? isEditingImage
@@ -293,11 +397,11 @@ export function PlaygroundInput({
 
         <PromptInputFooter className='p-2.5'>
           <PromptInputTools>
-            <AttachmentMenu disabled={disabled} />
+            <AttachmentMenu disabled={isInputDisabled} />
 
             <PromptInputButton
               className='border font-medium'
-              disabled={disabled}
+              disabled={isInputDisabled}
               onClick={() => toast.info(t('Search feature in development'))}
               variant='outline'
             >
@@ -308,6 +412,17 @@ export function PlaygroundInput({
           </PromptInputTools>
 
           <div className='flex items-center gap-1.5 md:gap-2'>
+            {estimatedTokens > 0 && (
+              <span
+                className={cn(
+                  'text-[10px] text-muted-foreground select-none transition-colors mr-2 self-center font-mono',
+                  estimatedTokens > 4000 && 'text-amber-500',
+                  estimatedTokens > 8000 && 'text-destructive'
+                )}
+              >
+                ~{estimatedTokens} tokens
+              </span>
+            )}
             <ModelGroupSelector
               selectedModel={modelValue}
               models={models}
@@ -330,7 +445,7 @@ export function PlaygroundInput({
               </PromptInputButton>
             ) : (
               <SubmitButton
-                disabled={disabled}
+                disabled={isInputDisabled}
                 isImageMode={isImageMode}
                 text={text}
               />
@@ -339,21 +454,23 @@ export function PlaygroundInput({
         </PromptInputFooter>
       </PromptInput>
 
-      <Suggestions>
-        {suggestions.map(({ icon: Icon, text, color }) => (
-          <Suggestion
-            className={`text-xs font-normal sm:text-sm ${
-              text === 'More' ? 'hidden sm:flex' : ''
-            }`}
-            key={text}
-            onClick={() => handleSuggestionClick(text)}
-            suggestion={text}
-          >
-            {Icon && <Icon size={16} style={{ color }} />}
-            {text}
-          </Suggestion>
-        ))}
-      </Suggestions>
+      {!hasMessages && (
+        <Suggestions>
+          {suggestions.map(({ icon: Icon, text, color }) => (
+            <Suggestion
+              className={`text-xs font-normal sm:text-sm ${
+                text === 'More' ? 'hidden sm:flex' : ''
+              }`}
+              key={text}
+              onClick={() => handleSuggestionClick(text)}
+              suggestion={text}
+            >
+              {Icon && <Icon size={16} style={{ color }} />}
+              {text}
+            </Suggestion>
+          ))}
+        </Suggestions>
+      )}
     </div>
   )
 }

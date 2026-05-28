@@ -26,6 +26,7 @@ import {
   updateLastAssistantMessage,
   processStreamingContent,
   finalizeMessage,
+  setStreamingActive,
 } from '../lib'
 import type {
   AssistantPostProcessResult,
@@ -126,6 +127,7 @@ export function useChatHandler({
 
   // Handle stream complete
   const handleStreamComplete = useCallback(() => {
+    setStreamingActive(false)
     let completedMessageKey = ''
     let completedContent = ''
     onMessageUpdate((prev) =>
@@ -153,6 +155,7 @@ export function useChatHandler({
   // Handle stream error
   const handleStreamError = useCallback(
     (error: string, errorCode?: string) => {
+      setStreamingActive(false)
       toast.error(error)
       onMessageUpdate((prev) =>
         updateAssistantMessageWithError(prev, error, errorCode)
@@ -169,6 +172,7 @@ export function useChatHandler({
         config,
         parameterEnabled
       )
+      setStreamingActive(true)
       sendStreamRequest(
         payload,
         handleStreamUpdate,
@@ -266,6 +270,7 @@ export function useChatHandler({
   // Stop generation
   const stopGeneration = useCallback(() => {
     stopStream()
+    setStreamingActive(false)
     onMessageUpdate((prev) =>
       updateLastAssistantMessage(prev, (message) =>
         message.status === MESSAGE_STATUS.LOADING ||

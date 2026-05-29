@@ -269,7 +269,7 @@ func GenerateAndUploadAgreementPDF(topUpId int) {
 		val = strings.ReplaceAll(val, "{{order}}", topUp.TradeNo)
 		val = strings.ReplaceAll(val, "{{amount}}", amountText)
 
-		lines, err := pdf.SplitText(val, contentWidth)
+		lines, err := splitText(&pdf, val, contentWidth)
 		if err != nil {
 			lines = []string{val}
 		}
@@ -288,7 +288,7 @@ func GenerateAndUploadAgreementPDF(topUpId int) {
 	pdf.SetTextColor(51, 51, 51)
 
 	for _, section := range tmpl.Sections {
-		lines, err := pdf.SplitText(section, contentWidth)
+		lines, err := splitText(&pdf, section, contentWidth)
 		if err != nil {
 			lines = []string{section}
 		}
@@ -380,4 +380,53 @@ func DownloadAgreementReader(ctx context.Context, objectName string) (io.ReadClo
 	}
 
 	return obj, info.Size, "application/pdf", nil
+}
+
+func containsCJK(s string) bool {
+	for _, r := range s {
+		if (r >= 0x4e00 && r <= 0x9fff) || (r >= 0x3040 && r <= 0x30ff) || (r >= 0xac00 && r <= 0xd7af) {
+			return true
+		}
+	}
+	return false
+}
+
+func splitTextByWidth(pdf *gopdf.GoPdf, text string, maxWidth float64) ([]string, error) {
+	runes := []rune(text)
+	var lines []string
+	var currentLine strings.Builder
+	var currentWidth float64
+
+	for i := 0; i < len(runes); i++ {
+		char := runes[i]
+		if char == '\n' {
+			lines = append(lines, currentLine.String())
+			currentLine.Reset()
+			currentWidth = 0
+			continue
+		}
+		charStr := string(char)
+		w, err := pdf.MeasureTextWidth(charStr)
+		if err != nil {
+			return nil, err
+		}
+		if currentWidth+w > maxWidth {
+			lines = append(lines, currentLine.String())
+			currentLine.Reset()
+			currentWidth = 0
+		}
+		currentLine.WriteRune(char)
+		currentWidth += w
+	}
+	if currentLine.Len() > 0 {
+		lines = append(lines, currentLine.String())
+	}
+	return lines, nil
+}
+
+func splitText(pdf *gopdf.GoPdf, text string, maxWidth float64) ([]string, error) {
+	if containsCJK(text) {
+		return splitTextByWidth(pdf, text, maxWidth)
+	}
+	return pdf.SplitText(text, maxWidth)
 }

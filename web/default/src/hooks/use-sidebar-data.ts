@@ -110,6 +110,11 @@ export function useSidebarData(): SidebarData {
             url: '/profile',
             icon: User,
           },
+          {
+            title: t('Feedback'),
+            url: '/feedback',
+            icon: MessageSquare,
+          },
         ],
       },
       {
@@ -145,6 +150,11 @@ export function useSidebarData(): SidebarData {
             title: t('Invoices'),
             url: '/invoices',
             icon: FileText,
+          },
+          {
+            title: t('Feedback Management'),
+            url: '/feedback-management',
+            icon: MessageSquare,
           },
           {
             title: t('System Settings'),

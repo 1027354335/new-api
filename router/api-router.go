@@ -227,6 +227,24 @@ func SetApiRouter(router *gin.Engine) {
 			adminInvoiceRoute.POST("/reject", controller.AdminRejectInvoice)
 		}
 
+		feedbackRoute := apiRouter.Group("/feedback")
+		feedbackRoute.Use(middleware.UserAuth())
+		{
+			feedbackRoute.POST("", controller.CreateFeedback)
+			feedbackRoute.GET("/self", controller.GetMyFeedbacks)
+			feedbackRoute.GET("/self/:id", controller.GetMyFeedback)
+			feedbackRoute.POST("/self/:id/close", controller.CloseMyFeedback)
+		}
+
+		adminFeedbackRoute := apiRouter.Group("/admin/feedback")
+		adminFeedbackRoute.Use(middleware.AdminAuth())
+		{
+			adminFeedbackRoute.GET("", controller.AdminListFeedbacks)
+			adminFeedbackRoute.GET("/:id", controller.AdminGetFeedback)
+			adminFeedbackRoute.POST("/:id/reply", controller.AdminReplyFeedback)
+			adminFeedbackRoute.PATCH("/:id/status", controller.AdminUpdateFeedbackStatus)
+		}
+
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{

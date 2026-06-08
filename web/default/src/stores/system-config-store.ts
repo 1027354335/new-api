@@ -44,6 +44,7 @@ export interface SystemConfig {
   demoSiteEnabled?: boolean
   displayTokenStatEnabled?: boolean
   currency: CurrencyConfig
+  defaultLanguage?: string
 }
 
 export const DEFAULT_CURRENCY_CONFIG: CurrencyConfig = {

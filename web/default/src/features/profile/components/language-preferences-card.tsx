@@ -19,12 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { useEffect, useMemo, useState } from 'react'
 import {
   INTERFACE_LANGUAGE_OPTIONS,
-  normalizeInterfaceLanguage,
 } from '@/i18n/languages'
 import { Languages, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
+import { useSystemConfigStore } from '@/stores/system-config-store'
 import {
   Select,
   SelectContent,
@@ -50,8 +50,8 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
 
   const savedLanguage = useMemo(() => {
     const settings = parseUserSettings(props.profile?.setting)
-    return normalizeInterfaceLanguage(settings.language || i18n.language)
-  }, [props.profile?.setting, i18n.language])
+    return settings.language || ''
+  }, [props.profile?.setting])
 
   const [currentLanguage, setCurrentLanguage] = useState(savedLanguage)
 
@@ -60,14 +60,23 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
   }, [savedLanguage])
 
   const handleLanguageChange = async (language: string | null) => {
-    if (!language) return
-    const nextLanguage = normalizeInterfaceLanguage(language)
+    if (language === null) return
+    const nextLanguage = language
     if (nextLanguage === currentLanguage) return
 
     const previousLanguage = currentLanguage
     setCurrentLanguage(nextLanguage)
     setSaving(true)
-    await i18n.changeLanguage(nextLanguage)
+
+    if (nextLanguage === '') {
+      localStorage.removeItem('i18nextLng_override')
+      localStorage.removeItem('i18nextLng')
+      const systemDefault = useSystemConfigStore.getState().config.defaultLanguage || 'zh'
+      await i18n.changeLanguage(systemDefault)
+    } else {
+      localStorage.setItem('i18nextLng_override', 'true')
+      await i18n.changeLanguage(nextLanguage)
+    }
 
     try {
       const response = await updateUserLanguage(nextLanguage)
@@ -93,7 +102,15 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
       toast.success(t('Language preference saved'))
     } catch (_error) {
       setCurrentLanguage(previousLanguage)
-      await i18n.changeLanguage(previousLanguage)
+      if (previousLanguage === '') {
+        localStorage.removeItem('i18nextLng_override')
+        localStorage.removeItem('i18nextLng')
+        const systemDefault = useSystemConfigStore.getState().config.defaultLanguage || 'zh'
+        await i18n.changeLanguage(systemDefault)
+      } else {
+        localStorage.setItem('i18nextLng_override', 'true')
+        await i18n.changeLanguage(previousLanguage)
+      }
       toast.error(t('Failed to update settings'))
     } finally {
       setSaving(false)
@@ -118,6 +135,7 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
         <div className='flex items-center gap-2 sm:min-w-48'>
           <Select
             items={[
+              { value: '', label: t('Follow System') },
               ...INTERFACE_LANGUAGE_OPTIONS.map((language) => ({
                 value: language.code,
                 label: language.label,
@@ -132,6 +150,9 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false}>
               <SelectGroup>
+                <SelectItem value=''>
+                  {t('Follow System')}
+                </SelectItem>
                 {INTERFACE_LANGUAGE_OPTIONS.map((language) => (
                   <SelectItem key={language.code} value={language.code}>
                     {language.label}

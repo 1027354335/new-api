@@ -77,6 +77,7 @@ export function useAuthRedirect() {
         // Restore saved language preference
         const savedLang = getSavedLanguage(user)
         if (savedLang && savedLang !== i18n.language) {
+          localStorage.setItem('i18nextLng_override', 'true')
           i18n.changeLanguage(savedLang)
         }
       }

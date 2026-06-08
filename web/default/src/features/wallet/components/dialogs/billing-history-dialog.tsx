@@ -55,7 +55,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Dialog } from '@/components/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { StatusBadge } from '@/components/status-badge'
 import {
   Tooltip,
@@ -477,7 +483,8 @@ export function BillingHistoryDialog({
               </div>
             </div>
           )}
-        </div>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {/* Confirm Complete Order Dialog */}

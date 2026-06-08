@@ -37,6 +37,7 @@ const defaultSiteSettings: SiteSettings = {
   'legal.privacy_policy': '',
   HeaderNavModules: '',
   SidebarModulesAdmin: '',
+  DefaultLanguage: 'zh',
 }
 
 export function SiteSettings() {

@@ -233,7 +233,11 @@ func updateUserSettingCache(userId int, setting string) error {
 func GetUserLanguage(userId int) string {
 	userCache, err := GetUserCache(userId)
 	if err != nil {
-		return ""
+		return common.DefaultLanguage
 	}
-	return userCache.GetSetting().Language
+	lang := userCache.GetSetting().Language
+	if lang == "" {
+		return common.DefaultLanguage
+	}
+	return lang
 }

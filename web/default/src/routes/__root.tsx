@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect } from 'react'
 import { type QueryClient } from '@tanstack/react-query'
+import i18n from 'i18next'
 import {
   createRootRouteWithContext,
   Outlet,
@@ -36,7 +37,13 @@ import { getSetupStatus } from '@/features/setup/api'
 
 function RootComponent() {
   // Load system configuration (logo, system name, etc.) from backend
-  useSystemConfig({ autoLoad: true })
+  const { defaultLanguage } = useSystemConfig({ autoLoad: true })
+
+  useEffect(() => {
+    if (defaultLanguage && !localStorage.getItem('i18nextLng_override')) {
+      i18n.changeLanguage(defaultLanguage)
+    }
+  }, [defaultLanguage])
 
   useEffect(() => {
     const aff = new URLSearchParams(window.location.search).get('aff')?.trim()

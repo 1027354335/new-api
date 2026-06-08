@@ -20,6 +20,7 @@ import * as z from 'zod'
 import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
+import { INTERFACE_LANGUAGE_OPTIONS } from '@/i18n/languages'
 import {
   Form,
   FormControl,
@@ -65,6 +66,7 @@ const _systemInfoSchema = z.object({
     user_agreement: z.string().optional(),
     privacy_policy: z.string().optional(),
   }),
+  DefaultLanguage: z.string().min(1),
 })
 
 type SystemInfoFormValues = z.infer<typeof _systemInfoSchema>
@@ -97,6 +99,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       user_agreement: normalizeValue(defaultValues.legal?.user_agreement),
       privacy_policy: normalizeValue(defaultValues.legal?.privacy_policy),
     },
+    DefaultLanguage: normalizeValue(defaultValues.DefaultLanguage) || 'zh',
   }
 
   const systemInfoSchemaWithI18n = z.object({
@@ -115,6 +118,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       user_agreement: z.string().optional(),
       privacy_policy: z.string().optional(),
     }),
+    DefaultLanguage: z.string().min(1),
   })
 
   const { form, handleSubmit, handleReset, isDirty, isSubmitting } =
@@ -194,6 +198,43 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                       {t(
                         'Switch between the new frontend and the classic frontend. Changes take effect after page reload.'
                       )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='DefaultLanguage'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Default Language')}</FormLabel>
+                    <Select
+                      items={INTERFACE_LANGUAGE_OPTIONS.map((lang) => ({
+                        value: lang.code,
+                        label: lang.label,
+                      }))}
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className='w-full'>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent alignItemWithTrigger={false}>
+                        <SelectGroup>
+                          {INTERFACE_LANGUAGE_OPTIONS.map((lang) => (
+                            <SelectItem key={lang.code} value={lang.code}>
+                              {lang.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {t('The default language of the system for new/unauthenticated users.')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

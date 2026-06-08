@@ -41,6 +41,7 @@ export function LanguageSwitcher() {
 
   const handleChangeLanguage = useCallback(
     async (code: string) => {
+      localStorage.setItem('i18nextLng_override', 'true')
       await i18n.changeLanguage(code)
       if (user) {
         try {
